@@ -1,0 +1,7 @@
+﻿services:
+  wsdscanservice:
+    image: wsdscanservice
+    build:
+      context: .
+      dockerfile: WsdScanService.Host/Dockerfile
+

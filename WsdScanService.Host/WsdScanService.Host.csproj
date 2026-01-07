@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+        <RootNamespace>WsdScanService.Host</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Content Include="..\.dockerignore">
+            <Link>.dockerignore</Link>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="CommunityToolkit.HighPerformance" Version="8.4.0" />
+        <PackageReference Include="CoreWCF.Primitives" Version="1.8.0"/>
+        <PackageReference Include="CoreWCF.Http" Version="1.8.0"/>
+        <PackageReference Include="CoreWCF.NetTcp" Version="1.8.0"/>
+        <PackageReference Include="CoreWCF.WebHttp" Version="1.8.0"/>
+        <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.1" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.1" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\WsdScanService.Common\WsdScanService.Common.csproj"/>
+        <ProjectReference Include="..\WsdScanService.Contracts\WsdScanService.Contracts.csproj"/>
+        <ProjectReference Include="..\WsdScanService.Discovery\WsdScanService.Discovery.csproj"/>
+        <ProjectReference Include="..\WsdScanService.Scanner\WsdScanService.Scanner.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="tmp\wsdscan\" />
+    </ItemGroup>
+
+</Project>

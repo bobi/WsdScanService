@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\WsdScanService.Common\WsdScanService.Common.csproj"/>
+        <ProjectReference Include="..\WsdScanService.Contracts\WsdScanService.Contracts.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="CoreWCF.Primitives" Version="1.8.0" />
+        <PackageReference Include="CoreWCF.Http" Version="1.8.0" />
+        <PackageReference Include="CoreWCF.WebHttp" Version="1.8.0" />
+    </ItemGroup>
+    
+</Project>
