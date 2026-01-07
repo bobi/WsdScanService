@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net;
-using WsdScanService.Contracts.Entities;
 using WsdScanService.Contracts.Repositories;
+using WsdScanService.Contracts.Scanner.Entities;
 
 namespace WsdScanService.Host.Repositories;
 
@@ -14,31 +14,45 @@ public class DeviceRepository : IDeviceRepository
     public void Add(Device device)
     {
         _devicesById[device.DeviceId] = device;
+        _devicesByAddress[GetDeviceAddress(device)] = device;
+    }
 
-        var addr = device.Address;
+    private static string GetDeviceAddress(Device device)
+    {
+        var addr = device.MexAddress;
 
         if (Uri.TryCreate(addr, UriKind.Absolute, out var resultUri))
         {
-            _devicesByAddress[resultUri.Host] = device;
+            return resultUri.Host;
         }
         else if (IPAddress.TryParse(addr, out var ipAddr))
         {
-            _devicesByAddress[ipAddr.ToString()] = device;
+            return ipAddr.ToString();
         }
         else
         {
-            _devicesByAddress[addr] = device;
+            return addr;
         }
     }
 
-    public Device? GetById(string? deviceId)
+    public Device GetById(string deviceId)
     {
-        return deviceId is null ? null : _devicesById.GetValueOrDefault(deviceId);
+        return _devicesById[deviceId];
     }
 
-    public Device? GetByAddress(string? address)
+    public bool HasById(string deviceId)
     {
-        return address is null ? null : _devicesByAddress.GetValueOrDefault(address);
+        return _devicesById.ContainsKey(deviceId);
+    }
+
+    public Device GetByHostAddress(string address)
+    {
+        return _devicesByAddress[address];
+    }
+
+    public bool HasByHostAddress(string address)
+    {
+        return _devicesByAddress.ContainsKey(address);
     }
 
     public bool RemoveById(string deviceId)
@@ -47,7 +61,7 @@ public class DeviceRepository : IDeviceRepository
 
         if (remove && device != null)
         {
-            remove &= _devicesByAddress.Remove(device.Address, out _);
+            remove &= _devicesByAddress.Remove(GetDeviceAddress(device), out _);
         }
 
         return remove;

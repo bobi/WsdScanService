@@ -1,48 +1,46 @@
 using System.Xml;
 using Microsoft.Extensions.Logging;
-using WsdScanService.Common;
 using WsdScanService.Common.Extensions;
-using WsdScanService.Discovery.Messages;
+using WsdScanService.Common.Utils;
+using WsdScanService.Contracts.Discovery;
 using WsdScanService.Discovery.SoapMessages;
 
 namespace WsdScanService.Discovery.Services.SoapMessageActions;
 
-public class ResolveMatchesActionHandler(ILogger<ResolveMatchesActionHandler> logger, DiscoveryPubSub<IMessage> pubSub)
+internal class ResolveMatchesActionHandler(ILogger<ResolveMatchesActionHandler> logger, IDeviceManager deviceManager)
     : ISoapActionHandler
 {
-    public async Task HandleAsync(ReadOnlyMemory<byte> data, CancellationToken ctsToken)
+    public async Task HandleAsync(ReadOnlyMemory<byte> data)
     {
         var xmlDoc = data.DeserializeFromXml<XmlDocument>();
         var soapMessage = xmlDoc.Deserialize<SoapMessage<ResolveMatchesBody>>();
+        var appSequence = soapMessage.SoapHeader?.AppSequence;
 
         var soapBody = soapMessage.SoapBody;
-        if (soapBody != null)
+        var resolveMatch = soapBody?.ResolveMatches?.ResolveMatch;
+
+        if (resolveMatch != null && appSequence != null)
         {
-            var resolveMatch = soapBody.ResolveMatches?.ResolveMatch;
+            var types = XmlUtils.ParseTypes(resolveMatch.Types, xmlDoc.GetAllNamespaces());
 
-            if (resolveMatch != null)
+            if (logger.IsEnabled(LogLevel.Debug))
             {
-                var types = XmlUtils.ParseTypes(resolveMatch.Types, xmlDoc.DocumentElement!.GetNamespaceOfPrefix);
+                logger.LogDebug(
+                    "Got types: [{XmlQualifiedNames}]",
+                    string.Join(", ", types?.Select(t => t.ToString()) ?? [])
+                );
+            }
 
-                if (logger.IsEnabled(LogLevel.Debug))
+            foreach (var type in types ?? [])
+            {
+                if (type == HelloMessageHandler.ScanDeviceTypeQName)
                 {
-                    logger.LogDebug(
-                        "Got types: [{XmlQualifiedNames}]",
-                        string.Join(", ", types?.Select(t => t.ToString()) ?? [])
-                    );
-                }
+                    var addrs = resolveMatch.XAddrs?.Split(' ');
+                    var deviceId = resolveMatch.EndpointReference?.Address;
 
-                foreach (var type in types ?? [])
-                {
-                    if (type == HelloMessageHandler.ScanDeviceTypeQName)
+                    if (addrs is { Length: > 0 } && !string.IsNullOrEmpty(deviceId))
                     {
-                        var addrs = resolveMatch.XAddrs?.Split(' ');
-                        var deviceId = resolveMatch.EndpointReference?.Address;
-
-                        if (addrs is { Length: > 0 } && !string.IsNullOrEmpty(deviceId))
-                        {
-                            await pubSub.PublishAsync(new AddDevice(deviceId, addrs[0], type.Name), ctsToken);
-                        }
+                        await deviceManager.AddDevice(deviceId, addrs[0], type.Name, appSequence.InstanceId, resolveMatch.MetadataVersion ?? 0);
                     }
                 }
             }

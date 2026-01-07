@@ -5,7 +5,7 @@ using WsdScanService.Discovery.Protocol;
 namespace WsdScanService.Discovery.SoapMessages;
 
 [XmlRoot(ElementName = "Body", Namespace = ProtocolConstants.Namespaces.Soap)]
-public class ProbeBody : SoapBody
+public  class ProbeBody : SoapBody
 {
     [XmlElement("Probe", Namespace = ProtocolConstants.Namespaces.WsDiscovery)]
     public required Probe Probe;
@@ -21,7 +21,7 @@ public class ProbeBody : SoapBody
 }
 
 [XmlRoot(ElementName = "Probe", Namespace = ProtocolConstants.Namespaces.WsDiscovery)]
-public class Probe
+public  class Probe
 {
     [XmlElement("Types")] public string? Types;
     [XmlElement("Scopes")] public string? Scopes;

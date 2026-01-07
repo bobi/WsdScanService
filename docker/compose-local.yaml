@@ -1,0 +1,14 @@
+﻿services:
+  wsd-scan-service:
+    image: wsd-scan-service
+    restart: unless-stopped
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    network_mode: host
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    volumes:
+      - ${SCANS_LOCATION}:/app/scans
+      - ${CUSTOM_SETTINGS_LOCATION}:/app/custom-settings.json:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro

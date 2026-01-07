@@ -1,0 +1,19 @@
+{
+  "WsdScanService": {
+    "OutputDir": "/app/scans",
+    "Sane": {
+      "UseSaneBackend": true,
+      "Device": "pixma:MF220_{Ip}"
+    },
+    "ScanProfiles": [
+      {
+        "DisplayName": "Scan to ... (300dpi)",
+        "Resolution": 300
+      },
+      {
+        "DisplayName": "Scan to ... (600dpi)",
+        "Resolution": 600
+      }
+    ]
+  }
+}

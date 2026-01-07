@@ -3,19 +3,30 @@ using System.Net.Sockets;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using WsdScanService.Discovery.Protocol;
 
 namespace WsdScanService.Discovery.Services;
 
-public class UdpClient : IHostedService
+internal class UdpClient : IHostedService
 {
     private readonly ILogger<UdpClient> _logger;
     private readonly IPEndPoint _multicastAddressEndPoint;
     private readonly System.Net.Sockets.UdpClient _udpClient;
 
-    public UdpClient(ILogger<UdpClient> logger, IOptions<Configuration.Configuration> configuration)
+    public UdpClient(ILogger<UdpClient> logger, IOptions<Configuration.DiscoveryConfiguration> configuration)
     {
+        var multicastAddressEndPoint = configuration.Value.IpV6
+            ? new IPEndPoint(
+                IPAddress.Parse(ProtocolConstants.MulticastIPv6Address.Host),
+                ProtocolConstants.MulticastIPv6Address.Port
+            )
+            : new IPEndPoint(
+                IPAddress.Parse(ProtocolConstants.MulticastIPv4Address.Host),
+                ProtocolConstants.MulticastIPv4Address.Port
+            );
+
         _logger = logger;
-        _multicastAddressEndPoint = configuration.Value.MulticastAddressEndPoint;
+        _multicastAddressEndPoint = multicastAddressEndPoint;
         _udpClient = new(_multicastAddressEndPoint.Port, _multicastAddressEndPoint.AddressFamily);
         _udpClient.Client.SendTimeout = 5000;
     }
@@ -39,14 +50,14 @@ public class UdpClient : IHostedService
             _multicastAddressEndPoint.Address,
             _multicastAddressEndPoint.Port
         );
-        
+
         return Task.CompletedTask;
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
         _udpClient.DropMulticastGroup(_multicastAddressEndPoint.Address);
-        
+
         return Task.CompletedTask;
     }
 }

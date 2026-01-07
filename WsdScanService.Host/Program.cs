@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 using WsdScanService.Common.Configuration;
 using WsdScanService.Discovery;
 using WsdScanService.Host;
@@ -11,20 +12,27 @@ builder.Logging.ClearProviders().AddConsole();
 
 builder.Configuration.AddEnvironmentVariables("WS_SCAN_");
 
-builder.Services.AddWsScanServiceHostServices(builder.Configuration);
-builder.Services.AddWsdDiscoveryServices(builder.Configuration);
-builder.Services.AddWsWsdScannerServices(builder.Configuration);
+builder.Configuration.AddJsonFile("custom-settings.json", optional: true, reloadOnChange: false);
 
-// builder.Services.AddSingleton<TestService>();
-// builder.Services.AddHostedService<BackgroundServiceStarter<TestService>>();
+builder.Services.AddHostServices(builder.Configuration);
+builder.Services.AddWsdDiscoveryServices(builder.Configuration);
+builder.Services.AddScannerServices(builder.Configuration);
 
 var app = builder.Build();
 
-app.ConfigureWsWsdScannerServices();
-var wsdScanServiceHostConfiguration = app.Services.GetRequiredService<IOptions<WsdScanServiceHostConfiguration>>();
+app.ConfigureScannerServices();
+var wsdScanServiceHostConfiguration = app.Services.GetRequiredService<IOptions<ScanServiceConfiguration>>();
 
-var hostIp = wsdScanServiceHostConfiguration.Value.Ip;
-var listenPort = wsdScanServiceHostConfiguration.Value.Port;
+
+var config = wsdScanServiceHostConfiguration.Value;
+
+app.Logger.LogInformation(
+    "Loaded Configuration:\n{Config}",
+    JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true })
+);
+
+var hostIp = config.Ip;
+var listenPort = config.Port;
 
 app.Logger.LogInformation($"Using IP: {hostIp}, Port: {listenPort}");
 

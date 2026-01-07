@@ -1,4 +1,4 @@
-using WsdScanService.Contracts.Entities;
+using WsdScanService.Contracts.Scanner.Entities;
 
 namespace WsdScanService.Contracts.Repositories;
 
@@ -6,9 +6,13 @@ public interface IDeviceRepository
 {
     void Add(Device device);
 
-    Device? GetById(string? deviceId);
+    Device GetById(string deviceId);
 
-    Device? GetByAddress(string? address);
+    bool HasById(string deviceId);
+
+    Device GetByHostAddress(string address);
+
+    bool HasByHostAddress(string address);
 
     bool RemoveById(string deviceId);
 

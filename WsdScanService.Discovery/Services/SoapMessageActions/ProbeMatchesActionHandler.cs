@@ -1,28 +1,29 @@
 using System.Xml;
 using Microsoft.Extensions.Logging;
-using WsdScanService.Common;
 using WsdScanService.Common.Extensions;
-using WsdScanService.Discovery.Messages;
+using WsdScanService.Common.Utils;
+using WsdScanService.Contracts.Discovery;
 using WsdScanService.Discovery.SoapMessages;
 
 namespace WsdScanService.Discovery.Services.SoapMessageActions;
 
-public class ProbeMatchesActionHandler(ILogger<ProbeMatchesActionHandler> logger, DiscoveryPubSub<IMessage> pubSub)
+internal class ProbeMatchesActionHandler(ILogger<ProbeMatchesActionHandler> logger, IDeviceManager deviceManager)
     : ISoapActionHandler
 {
-    public async Task HandleAsync(ReadOnlyMemory<byte> data, CancellationToken ctsToken)
+    public async Task HandleAsync(ReadOnlyMemory<byte> data)
     {
         var xmlDoc = data.DeserializeFromXml<XmlDocument>();
         var soapMessage = xmlDoc.Deserialize<SoapMessage<ProbeMatchesBody>>();
+        var appSequence = soapMessage.SoapHeader?.AppSequence;
 
         var soapBody = soapMessage.SoapBody;
-        if (soapBody != null)
+        if (soapBody != null && appSequence != null)
         {
             var probeMatches = soapBody.ProbeMatches;
 
             foreach (var probeMatch in probeMatches?.Matches ?? [])
             {
-                var types = XmlUtils.ParseTypes(probeMatch.Types, xmlDoc.DocumentElement!.GetNamespaceOfPrefix);
+                var types = XmlUtils.ParseTypes(probeMatch.Types, xmlDoc.GetAllNamespaces());
 
                 if (logger.IsEnabled(LogLevel.Debug))
                 {
@@ -41,7 +42,7 @@ public class ProbeMatchesActionHandler(ILogger<ProbeMatchesActionHandler> logger
 
                         if (addrs is { Length: > 0 } && !string.IsNullOrEmpty(deviceId))
                         {
-                            await pubSub.PublishAsync(new AddDevice(deviceId, addrs[0], type.Name), ctsToken);
+                            await deviceManager.AddDevice(deviceId, addrs[0], type.Name, appSequence.InstanceId, probeMatch.MetadataVersion ?? 0);
                         }
                     }
                 }

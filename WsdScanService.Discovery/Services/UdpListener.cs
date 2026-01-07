@@ -1,13 +1,12 @@
-using System.Net.Sockets;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace WsdScanService.Discovery.Services;
 
-public class UdpListener(
+internal class UdpListener(
     ILogger<UdpListener> logger,
     UdpClient udpClient,
-    DiscoveryPubSub<UdpReceiveResult> pubSub) : BackgroundService
+    IUdpMessageProcessor messageProcessor) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken ctsToken)
     {
@@ -17,7 +16,7 @@ public class UdpListener(
             {
                 var result = await udpClient.ReceiveAsync(ctsToken);
 
-                await pubSub.PublishAsync(result, ctsToken);
+                messageProcessor.ProcessMessage(result);
             }
             catch (OperationCanceledException)
             {

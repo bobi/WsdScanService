@@ -1,6 +1,6 @@
 namespace WsdScanService.Discovery.Services.SoapMessageActions;
 
-public interface ISoapActionHandler
+internal interface ISoapActionHandler
 {
-    Task HandleAsync(ReadOnlyMemory<byte> data, CancellationToken ctsToken);
+    Task HandleAsync(ReadOnlyMemory<byte> data);
 }

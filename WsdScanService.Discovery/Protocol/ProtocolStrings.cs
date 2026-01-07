@@ -3,7 +3,7 @@
 //----------------------------------------------------------------
 namespace WsdScanService.Discovery.Protocol;
 
-static class ProtocolStrings
+internal static class ProtocolStrings
 {
     public const string VersionNameDefault = Version11.Name;
 

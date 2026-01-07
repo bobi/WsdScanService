@@ -3,21 +3,21 @@ using WsdScanService.Discovery.Protocol;
 
 namespace WsdScanService.Discovery.SoapMessages;
 
-[XmlRoot(ElementName="AppSequence", Namespace=ProtocolConstants.Namespaces.WsDiscovery)]
-public class AppSequence { 
+[XmlRoot(ElementName = "AppSequence", Namespace = ProtocolConstants.Namespaces.WsDiscovery)]
+public class AppSequence
+{
+    [XmlAttribute(AttributeName = "InstanceId", Namespace = "")]
+    public uint InstanceId;
 
-    [XmlAttribute(AttributeName="InstanceId", Namespace="")] 
-    public int InstanceId; 
+    [XmlAttribute(AttributeName = "MessageNumber", Namespace = "")]
+    public uint MessageNumber;
 
-    [XmlAttribute(AttributeName="MessageNumber", Namespace="")] 
-    public int MessageNumber;
-    
-    public static AppSequence Create(int instanceId)
+    public static AppSequence Create(uint instanceId)
     {
         return new AppSequence
         {
             InstanceId = instanceId,
-            MessageNumber = Convert.ToInt32(Environment.TickCount)
+            MessageNumber = Convert.ToUInt32(Environment.TickCount)
         };
     }
 }

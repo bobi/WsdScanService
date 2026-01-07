@@ -7,9 +7,9 @@ using WsdScanService.Discovery.SoapMessages;
 
 namespace WsdScanService.Discovery.Services;
 
-public class UdpPublisher(
+internal class UdpPublisher(
     ILogger<UdpPublisher> logger,
-    IOptions<Configuration.Configuration> configuration,
+    IOptions<Configuration.DiscoveryConfiguration> configuration,
     UdpClient udpClient) : BackgroundService
 {
     private static readonly string ProbeMessageId = $"urn:uuid:{Guid.NewGuid()}";
@@ -17,7 +17,7 @@ public class UdpPublisher(
     private readonly TimeSpan _probeInitialDelay = configuration.Value.ProbeInitialDelay;
     private readonly TimeSpan _probeRepeatDelay = configuration.Value.ProbeRepeatDelay;
     private readonly int _probeProbeRepeatTimes = configuration.Value.ProbeRepeatTimes;
-    private readonly int _instanceId = configuration.Value.InstanceId;
+    private readonly uint _instanceId = configuration.Value.InstanceId;
 
     protected override async Task ExecuteAsync(CancellationToken ctsToken)
     {
@@ -34,7 +34,8 @@ public class UdpPublisher(
             {
                 var probeMessage = SoapMessage<ProbeBody>.Create(
                     SoapHeader.Create(ProtocolConstants.Actions.ProbeAction, ProbeMessageId, _instanceId),
-                    ProbeBody.Create([
+                    ProbeBody.Create(
+                        [
                             new("Device", ProtocolConstants.Namespaces.DevicesProfile),
                         ]
                     )

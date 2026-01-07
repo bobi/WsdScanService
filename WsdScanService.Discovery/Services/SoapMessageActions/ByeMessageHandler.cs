@@ -1,26 +1,27 @@
 using System.Xml;
 using WsdScanService.Common.Extensions;
-using WsdScanService.Discovery.Messages;
+using WsdScanService.Contracts.Discovery;
 using WsdScanService.Discovery.SoapMessages;
 
 namespace WsdScanService.Discovery.Services.SoapMessageActions;
 
-public class ByeMessageHandler(DiscoveryPubSub<IMessage> pubSub) : ISoapActionHandler
+internal class ByeMessageHandler(IDeviceManager deviceManager) : ISoapActionHandler
 {
-    public async Task HandleAsync(ReadOnlyMemory<byte> data, CancellationToken ctsToken)
+    public async Task HandleAsync(ReadOnlyMemory<byte> data)
     {
         var xmlDoc = data.DeserializeFromXml<XmlDocument>();
         var soapMessage = xmlDoc.Deserialize<SoapMessage<ByeBody>>();
 
         var bye = soapMessage.SoapBody?.Bye;
+        var appSequence = soapMessage.SoapHeader?.AppSequence;
 
-        if (bye != null)
+        if (bye != null && appSequence != null)
         {
             var deviceId = bye.EndpointReference?.Address;
 
             if (!string.IsNullOrEmpty(deviceId))
             {
-                await pubSub.PublishAsync(new RemoveDevice(deviceId), ctsToken);
+                await deviceManager.RemoveDevice(deviceId, appSequence.InstanceId);
             }
         }
     }

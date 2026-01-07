@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Text;
 using System.Xml;
@@ -12,62 +13,82 @@ using WsdScanService.Discovery.Utils;
 
 namespace WsdScanService.Discovery.Services;
 
-public class UdpMessagesProcessor(
+internal class UdpMessagesProcessor(
     ILogger<UdpMessagesProcessor> logger,
-    DiscoveryPubSub<UdpReceiveResult> pubSub,
-    IServiceProvider messageActions) : IHostedService
+    IServiceProvider messageActions) : BackgroundService, IUdpMessageProcessor
 {
-    private Guid _subscriberId = Guid.Empty;
+    private readonly BlockingCollection<UdpReceiveResult> _messageQueue = new();
 
     private readonly DuplicateDetector<string> _duplicateDetector = new(2048);
 
-    private async Task ProcessMessage(UdpReceiveResult udpReceiveResult, CancellationToken ctsToken)
+    protected override Task ExecuteAsync(CancellationToken ctsToken)
     {
-        var soapMessage = udpReceiveResult.Buffer.DeserializeFromXml<SoapMessage<XmlElement>>();
+        logger.LogDebug("Starting UDP message processor loop");
 
-        var messageId = soapMessage.SoapHeader?.MessageId;
-
-        if (string.IsNullOrEmpty(messageId))
+        while (!ctsToken.IsCancellationRequested)
         {
-            logger.LogWarning("MessageId is empty. {}", soapMessage);
-            return;
-        }
-
-        if (_duplicateDetector.AddIfNotDuplicate(messageId))
-        {
-            if (logger.IsEnabled(LogLevel.Trace))
+            try
             {
-                logger.LogTrace(
-                    "Received message from {0}:\n{1}",
-                    udpReceiveResult.RemoteEndPoint,
-                    Encoding.UTF8.GetString(udpReceiveResult.Buffer)
-                );
-            }
+                var udpReceiveResult = _messageQueue.Take(ctsToken);
 
-            var soapAction = soapMessage.SoapHeader?.Action;
-            if (!string.IsNullOrEmpty(soapAction) && ProtocolConstants.Actions.All.Contains(soapAction))
-            {
-                var actionHandler = messageActions.GetKeyedService<ISoapActionHandler>(soapAction);
+                var soapMessage = udpReceiveResult.Buffer.DeserializeFromXml<SoapMessage<XmlElement>>();
 
-                if (actionHandler != null)
+                var messageId = soapMessage.SoapHeader?.MessageId;
+
+                if (string.IsNullOrEmpty(messageId))
                 {
-                    await actionHandler.HandleAsync(udpReceiveResult.Buffer, ctsToken);
+                    logger.LogWarning("MessageId is empty. {}", soapMessage);
+
+                    continue;
+                }
+
+                if (_duplicateDetector.AddIfNotDuplicate(messageId))
+                {
+                    if (logger.IsEnabled(LogLevel.Trace))
+                    {
+                        logger.LogTrace(
+                            "Received message from {0}:\n{1}",
+                            udpReceiveResult.RemoteEndPoint,
+                            Encoding.UTF8.GetString(udpReceiveResult.Buffer)
+                        );
+                    }
+
+                    var soapAction = soapMessage.SoapHeader?.Action;
+                    if (!string.IsNullOrEmpty(soapAction) && ProtocolConstants.Actions.All.Contains(soapAction))
+                    {
+                        var actionHandler = messageActions.GetKeyedService<ISoapActionHandler>(soapAction);
+
+                        if (actionHandler != null)
+                        {
+                            actionHandler.HandleAsync(udpReceiveResult.Buffer);
+                        }
+                    }
+                }
+                else
+                {
+                    if (logger.IsEnabled(LogLevel.Debug))
+                    {
+                        logger.LogDebug("Duplicate message detected. MessageId: {MessageId}", messageId);
+                    }
                 }
             }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, ex.Message);
+            }
         }
-    }
 
-    public Task StartAsync(CancellationToken cancellationToken)
-    {
-        _subscriberId = pubSub.Subscribe(ProcessMessage);
+        logger.LogDebug("UDP message processor loop completed");
 
         return Task.CompletedTask;
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    public void ProcessMessage(UdpReceiveResult udpReceiveResult)
     {
-        pubSub.Unsubscribe(_subscriberId);
-
-        return Task.CompletedTask;
+        _messageQueue.Add(udpReceiveResult);
     }
 }

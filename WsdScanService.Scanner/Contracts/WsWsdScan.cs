@@ -1,0 +1,140 @@
+using System.Diagnostics.CodeAnalysis;
+using System.ServiceModel;
+using Microsoft.Extensions.Logging;
+using WsdScanService.Common;
+using WsdScanService.Contracts;
+using WsdScanService.Contracts.ScanService;
+using WsdScanService.Scanner.Extensions;
+using WsdScanService.Scanner.Utils;
+
+namespace WsdScanService.Scanner.Contracts;
+
+internal static partial class Constants
+{
+    internal const string ScannerServiceContractName = "WsdScanService.Contracts.IWsTransfer";
+
+    internal const string ScannerServiceCallbackContractName = "WsdScanService.Contracts.IWsWsdScannerServiceCallback";
+}
+
+[ServiceContract(
+    ConfigurationName = Constants.ScannerServiceContractName,
+    Name = Constants.ScannerServiceContractName,
+    Namespace = Xd.ScanService.Namespace)]
+[XmlSerializerFormat(SupportFaults = true)]
+internal interface IWsScannerClient
+{
+    [OperationContract(Action = Xd.ScanService.Actions.CreateScanJob, ReplyAction = "*")]
+    Task<CreateScanJobResponse> CreateScanJobAsync(CreateScanJobRequest request);
+
+    [OperationContract(Action = Xd.ScanService.Actions.RetrieveImage, ReplyAction = "*")]
+    Task<RetrieveImageResponse> RetrieveImageAsync(RetrieveImageRequest request);
+
+    [OperationContract(Action = Xd.ScanService.Actions.CancelJob, ReplyAction = "*")]
+    Task<CancelJobResponse> CancelJobAsync(CancelJobRequest request);
+
+    [OperationContract(Action = Xd.ScanService.Actions.ValidateScanTicket, ReplyAction = "*")]
+    Task<ValidateScanTicketResponse> ValidateScanTicketAsync(ValidateScanTicketRequest request);
+
+    [OperationContract(Action = Xd.ScanService.Actions.GetScannerElements, ReplyAction = "*")]
+    Task<GetScannerElementsResponse> GetScannerElementsAsync(GetScannerElementsRequest request);
+
+    [OperationContract(Action = Xd.ScanService.Actions.GetJobElements, ReplyAction = "*")]
+    Task<GetJobElementsResponse> GetJobElementsAsync(GetJobElementsRequest request);
+
+    [OperationContract(Action = Xd.ScanService.Actions.GetActiveJobs, ReplyAction = "*")]
+    Task<GetActiveJobsResponse> GetActiveJobsAsync(GetActiveJobsRequest request);
+
+    [OperationContract(Action = Xd.ScanService.Actions.GetJobHistory, ReplyAction = "*")]
+    Task<GetJobHistoryResponse> GetJobHistoryAsync(GetJobHistoryRequest request);
+}
+
+[ServiceContract(
+    ConfigurationName = Constants.ScannerServiceCallbackContractName,
+    Name = Constants.ScannerServiceCallbackContractName,
+    Namespace = Xd.ScanService.Namespace)]
+[XmlSerializerFormat(SupportFaults = true)]
+[SuppressMessage("ReSharper", "UnusedMember.Global")]
+internal interface IWsScannerCallback
+{
+    [OperationContract(Action = Xd.ScanService.CallbackActions.ScanAvailableEvent,
+        IsOneWay = false)]
+    Task ScanAvailableEventAsync(ScanAvailableEvent request);
+
+    [OperationContract(Action = Xd.ScanService.CallbackActions.ScannerElementsChangeEvent,
+        IsOneWay = true)]
+    Task ScannerElementsChangeEventAsync(ScannerElementsChangeEvent request);
+
+    [OperationContract(Action = Xd.ScanService.CallbackActions.ScannerStatusSummaryEvent,
+        IsOneWay = true)]
+    Task ScannerStatusSummaryEventAsync(ScannerStatusSummaryEvent request);
+
+    [CoreWCF.OperationContract(Action = Xd.ScanService.CallbackActions.ScannerStatusConditionEvent,
+        IsOneWay = true)]
+    Task ScannerStatusConditionEventAsync(ScannerStatusConditionEvent request);
+
+    [OperationContract(Action = Xd.ScanService.CallbackActions.ScannerStatusConditionClear,
+        IsOneWay = true)]
+    Task ScannerStatusConditionClearedEventAsync(ScannerStatusConditionClearedEvent request);
+
+    [OperationContract(Action = Xd.ScanService.CallbackActions.JobStatusEvent, IsOneWay = true)]
+    Task JobStatusEventAsync(JobStatusEvent request);
+
+    [OperationContract(Action = Xd.ScanService.CallbackActions.JobEndStateEvent, IsOneWay = true)]
+    Task JobEndStateEventAsync(JobEndStateEvent request);
+}
+
+internal class WsScannerClient : ClientBase<IWsScannerClient>, IWsScannerClient
+{
+    private WsScannerClient(string uri) : base(new WsdClientBinding(), new EndpointAddress(uri))
+    {
+    }
+
+    public static WsScannerClient Create(string uri, ILogger logger)
+    {
+        var client = new WsScannerClient(uri);
+
+        client.AddTraceMessageLogBehavior(logger);
+
+        return client;
+    }
+
+    public Task<CreateScanJobResponse> CreateScanJobAsync(CreateScanJobRequest request)
+    {
+        return Channel.CreateScanJobAsync(request);
+    }
+
+    public Task<RetrieveImageResponse> RetrieveImageAsync(RetrieveImageRequest request)
+    {
+        return Channel.RetrieveImageAsync(request);
+    }
+
+    public Task<CancelJobResponse> CancelJobAsync(CancelJobRequest request)
+    {
+        return Channel.CancelJobAsync(request);
+    }
+
+    public Task<ValidateScanTicketResponse> ValidateScanTicketAsync(ValidateScanTicketRequest request)
+    {
+        return Channel.ValidateScanTicketAsync(request);
+    }
+
+    public Task<GetScannerElementsResponse> GetScannerElementsAsync(GetScannerElementsRequest request)
+    {
+        return Channel.GetScannerElementsAsync(request);
+    }
+
+    public Task<GetJobElementsResponse> GetJobElementsAsync(GetJobElementsRequest request)
+    {
+        return Channel.GetJobElementsAsync(request);
+    }
+
+    public Task<GetActiveJobsResponse> GetActiveJobsAsync(GetActiveJobsRequest request)
+    {
+        return Channel.GetActiveJobsAsync(request);
+    }
+
+    public Task<GetJobHistoryResponse> GetJobHistoryAsync(GetJobHistoryRequest request)
+    {
+        return Channel.GetJobHistoryAsync(request);
+    }
+}

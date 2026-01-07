@@ -5,7 +5,7 @@ using WsdScanService.Discovery.Protocol;
 namespace WsdScanService.Discovery.SoapMessages;
 
 [XmlRoot(ElementName = "Body", Namespace = ProtocolConstants.Namespaces.Soap)]
-public class ResolveBody : SoapBody
+public  class ResolveBody : SoapBody
 {
     [XmlElement(ElementName = "Resolve", Namespace = ProtocolConstants.Namespaces.WsDiscovery)]
     public required Resolve Resolve;
@@ -21,7 +21,7 @@ public class ResolveBody : SoapBody
 }
 
 [XmlRoot(ElementName = "Resolve", Namespace = ProtocolConstants.Namespaces.WsDiscovery)]
-public class Resolve
+public  class Resolve
 {
     [XmlIgnore] public XmlQualifiedName[]? Types;
     [XmlElement("Scopes")] public string[]? Scopes;

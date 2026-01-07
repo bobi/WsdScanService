@@ -31,11 +31,15 @@ public class SoapHeader
     [XmlElement(ElementName = "MessageID", Namespace = ProtocolConstants.Namespaces.WsAddressing)]
     public required string MessageId;
 
+#pragma warning disable 0649
     [XmlElement(ElementName = "RelatesTo", Namespace = ProtocolConstants.Namespaces.WsAddressing)]
     public string? RelatesTo;
+#pragma warning restore 0649
 
+#pragma warning disable 0649
     [XmlElement(ElementName = "To", Namespace = ProtocolConstants.Namespaces.WsAddressing)]
     public string? To;
+#pragma warning restore 0649
 
     [XmlElement(ElementName = "AppSequence", Namespace = ProtocolConstants.Namespaces.WsDiscovery)]
     public required AppSequence AppSequence;
@@ -43,7 +47,7 @@ public class SoapHeader
     // [field: XmlElement(ElementName = "From")]
     // public EndpointReference? From;
 
-    public static SoapHeader Create(string action, string messageId, int instanceId)
+    public static SoapHeader Create(string action, string messageId, uint instanceId)
     {
         return new SoapHeader
         {
