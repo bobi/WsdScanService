@@ -137,7 +137,7 @@ namespace WsdScanService.Host.Services
                 if (imageData is { Length: > 0 })
                 {
                     await FileUtils.WriteUniqueFileWithSuffix(
-                        Path.Combine(outputDir, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}.jpg"),
+                        Path.Combine(outputDir, $"{DateTime.Now:yyyy-MM-dd_HHmmss}.jpg"),
                         imageData,
                         cancellationToken
                     );
