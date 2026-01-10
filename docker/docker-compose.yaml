@@ -1,5 +1,6 @@
 ﻿services:
   wsd-scan-service:
+    pull_policy: always
     image: andreybardashevsky/wsd-scan-service
     restart: unless-stopped
     network_mode: host
