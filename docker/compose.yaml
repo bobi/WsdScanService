@@ -1,10 +1,7 @@
 ﻿services:
   wsd-scan-service:
-    image: wsd-scan-service
+    image: andreybardashevsky/wsd-scan-service
     restart: unless-stopped
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
     network_mode: host
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
     volumes:
