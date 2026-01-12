@@ -1,11 +1,11 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
-using WsdScanService.Contracts.Repositories;
 using WsdScanService.Contracts.Scanner.Entities;
 
 namespace WsdScanService.Host.Repositories;
 
-public class DeviceRepository : IDeviceRepository
+public class DeviceRepository
 {
     private readonly ConcurrentDictionary<string, Device> _devicesById = new();
 
@@ -35,45 +35,35 @@ public class DeviceRepository : IDeviceRepository
         }
     }
 
-    public Device GetById(string deviceId)
+    public bool TryGetById(string deviceId, [NotNullWhen(true)] out Device? device)
     {
-        return _devicesById[deviceId];
+        return _devicesById.TryGetValue(deviceId, out device);
     }
 
-    public bool HasById(string deviceId)
+    public bool TryGetByHostAddress(string address, [NotNullWhen(true)] out Device? device)
     {
-        return _devicesById.ContainsKey(deviceId);
+        return _devicesByAddress.TryGetValue(address, out device);
     }
 
-    public Device GetByHostAddress(string address)
+    public bool TryRemoveById(string deviceId, [NotNullWhen(true)] out Device? device)
     {
-        return _devicesByAddress[address];
-    }
-
-    public bool HasByHostAddress(string address)
-    {
-        return _devicesByAddress.ContainsKey(address);
-    }
-
-    public bool RemoveById(string deviceId)
-    {
-        var remove = _devicesById.Remove(deviceId, out var device);
+        var remove = _devicesById.TryRemove(deviceId, out device);
 
         if (remove && device != null)
         {
-            remove &= _devicesByAddress.Remove(GetDeviceAddress(device), out _);
+            remove &= _devicesByAddress.TryRemove(GetDeviceAddress(device), out _);
         }
 
         return remove;
     }
 
-    public bool RemoveByAddress(string address)
+    public bool TryRemoveByAddress(string address, [NotNullWhen(true)] out Device? device)
     {
-        var remove = _devicesByAddress.Remove(address, out var device);
+        var remove = _devicesByAddress.TryRemove(address, out device);
 
         if (remove && device != null)
         {
-            remove &= _devicesById.Remove(device.DeviceId, out _);
+            remove &= _devicesById.TryRemove(device.DeviceId, out _);
         }
 
         return remove;

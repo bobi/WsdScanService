@@ -1,14 +1,14 @@
 using Microsoft.Extensions.Options;
 using WsdScanService.Common.Configuration;
-using WsdScanService.Contracts.Repositories;
 using WsdScanService.Contracts.Scanner;
+using WsdScanService.Host.Repositories;
 
 namespace WsdScanService.Host.Services;
 
 public class SubscriptionRenewService(
     ILogger<SubscriptionRenewService> logger,
     IOptions<ScanServiceConfiguration> configuration,
-    IDeviceRepository deviceRepository,
+    DeviceRepository deviceRepository,
     IWsScanner scanner) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

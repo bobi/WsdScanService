@@ -1,17 +1,17 @@
-using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
 using WsdScanService.Common.Configuration;
 using WsdScanService.Contracts.Discovery;
-using WsdScanService.Contracts.Repositories;
 using WsdScanService.Contracts.Scanner;
 using WsdScanService.Contracts.Scanner.Entities;
+using WsdScanService.Host.Repositories;
 
 namespace WsdScanService.Host.Services;
 
 public class DeviceManager(
     ILogger<DeviceManager> logger,
     IOptions<ScanServiceConfiguration> configuration,
-    IDeviceRepository deviceRepository,
+    DeviceRepository deviceRepository,
+    DeviceRemovalTracker removalTracker,
     IWsScanner scanner) : IDeviceManager
 {
     private readonly List<ScanDestination> _scanDestinations = configuration.Value.ScanProfiles.Select(e =>
@@ -19,65 +19,25 @@ public class DeviceManager(
         )
         .ToList();
 
-    private readonly ConcurrentDictionary<string, CancellationTokenSource> _devicesToRemove = new();
-
-    public async Task RemoveDevice(string deviceId, uint instanceId, uint metadataVersion = 0)
+    public Task RemoveDevice(string deviceId, uint instanceId, uint metadataVersion = 0)
     {
-        if (!deviceRepository.HasById(deviceId)) return;
-
-        var device = deviceRepository.GetById(deviceId);
+        if (!deviceRepository.TryGetById(deviceId, out var device))
+            return Task.CompletedTask;
 
         if (instanceId < device.InstanceId)
         {
             logger.LogDebug(
                 "Ignoring stale Bye for DeviceId: {DeviceId}. Current InstanceId: {Current}, Bye InstanceId: {Bye}",
-                deviceId,
+                device.DeviceId,
                 device.InstanceId,
                 instanceId
             );
-            return;
+            return Task.CompletedTask;
         }
 
-        if (metadataVersion > 0 && instanceId == device.InstanceId && metadataVersion < device.MetadataVersion)
-        {
-            logger.LogDebug(
-                "Ignoring stale Bye for DeviceId: {DeviceId}. Current MetadataVersion: {Current}, Bye MetadataVersion: {Bye}",
-                deviceId,
-                device.MetadataVersion,
-                metadataVersion
-            );
-            return;
-        }
+        removalTracker.Schedule(deviceId, async _ => await PerformDeviceRemoval(device));
 
-        logger.LogDebug("Device marked for removal (grace period started): {DeviceId}", deviceId);
-
-        if (_devicesToRemove.TryGetValue(deviceId, out var tokenSource))
-        {
-            await tokenSource.CancelAsync();
-            tokenSource.Dispose();
-        }
-
-        var removalTokenSource = new CancellationTokenSource();
-        _devicesToRemove[deviceId] = removalTokenSource;
-        var token = removalTokenSource.Token;
-
-        try
-        {
-            await Task.Delay(configuration.Value.RemovalGracePeriodMs, token);
-
-            if (!token.IsCancellationRequested)
-            {
-                await PerformDeviceRemoval(device);
-            }
-            else
-            {
-                logger.LogDebug("Device removal cancelled for {DeviceId}", deviceId);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            logger.LogDebug("Device removal cancelled for {DeviceId}", deviceId);
-        }
+        return Task.CompletedTask;
     }
 
     private async Task PerformDeviceRemoval(Device device)
@@ -89,8 +49,7 @@ public class DeviceManager(
                 await scanner.UnsubscribeAsync(device.ScanServiceAddress, subscription.Value.Identifier);
             }
 
-            deviceRepository.RemoveById(device.DeviceId);
-
+            deviceRepository.TryRemoveById(device.DeviceId, out _);
             logger.LogInformation("Device removed: {DeviceId}", device.DeviceId);
         }
         catch (Exception e)
@@ -111,21 +70,20 @@ public class DeviceManager(
 
         const int maxRetries = 3;
         const int delayMs = 3000;
-
         for (var retryAttempt = 0; retryAttempt < maxRetries; retryAttempt++)
         {
             try
             {
-                if (deviceRepository.HasById(deviceId))
+                if (deviceRepository.TryGetById(deviceId, out var device))
                 {
-                    await UpdateDevice(deviceId, mexAddress, instanceId, metadataVersion);
-                    break;
+                    await UpdateDevice(device, mexAddress, instanceId, metadataVersion);
                 }
                 else
                 {
                     await AddNewDevice(deviceId, mexAddress, type, instanceId, metadataVersion);
-                    break;
                 }
+
+                break;
             }
             catch (Exception ex)
             {
@@ -138,7 +96,6 @@ public class DeviceManager(
                         delayMs,
                         retryAttempt + 1
                     );
-
                     await Task.Delay(delayMs);
                 }
                 else
@@ -149,72 +106,54 @@ public class DeviceManager(
         }
     }
 
-
-    private async Task UpdateDevice(string deviceId, string mexAddress, uint instanceId, uint metadataVersion)
+    private async Task UpdateDevice(Device device, string mexAddress, uint instanceId, uint metadataVersion)
     {
-        var existingDevice = deviceRepository.GetById(deviceId);
+        if (instanceId < device.InstanceId)
+            return;
 
-        if (instanceId >= existingDevice.InstanceId)
+        removalTracker.Cancel(device.DeviceId);
+
+        logger.LogInformation(
+            "Updating device metadata for {DeviceId}. Old Version: {OldVersion}, New Version: {NewVersion}",
+            device.DeviceId,
+            device.MetadataVersion,
+            metadataVersion
+        );
+
+        var updatedMetadata = await scanner.GetScanDeviceMetadataAsync(device.DeviceId, mexAddress);
+
+        foreach (var subscriptionEntry in device.Subscriptions)
         {
-            if (_devicesToRemove.TryGetValue(deviceId, out var tokenSource) && !tokenSource.IsCancellationRequested)
+            try
             {
-                logger.LogInformation(
-                    "Cancelling pending removal for device {DeviceId} due to fresh Hello/ProbeMatch",
-                    deviceId
+                var subscription = await scanner.SubscribeAsync(
+                    device.ScanServiceAddress,
+                    subscriptionEntry.Key,
+                    _scanDestinations
                 );
-                await tokenSource.CancelAsync();
-                tokenSource.Dispose();
-                _devicesToRemove.Remove(deviceId, out _);
+                device.Subscriptions[subscriptionEntry.Key] = subscription;
+                logger.LogDebug(
+                    "Resubscribed {SubscriptionId} for device {DeviceId}",
+                    subscription.Identifier,
+                    device.DeviceId
+                );
             }
-
-            if (instanceId > existingDevice.InstanceId || metadataVersion > existingDevice.MetadataVersion)
+            catch (Exception ex)
             {
-                logger.LogInformation(
-                    "Updating device metadata for {DeviceId}. Old Version: {OldVersion}, New Version: {NewVersion}",
-                    deviceId,
-                    existingDevice.MetadataVersion,
-                    metadataVersion
+                logger.LogError(
+                    ex,
+                    "Failed to resubscribe {SubscriptionId} for device {DeviceId}.",
+                    subscriptionEntry.Value.Identifier,
+                    device.DeviceId
                 );
-
-                var updatedMetadata = await scanner.GetScanDeviceMetadataAsync(deviceId, mexAddress);
-
-                existingDevice.ModelName = updatedMetadata.ModelName;
-                existingDevice.SerialNumber = updatedMetadata.SerialNumber;
-                existingDevice.ScanServiceAddress = updatedMetadata.ScanServiceAddress;
-
-                foreach (var subscriptionEntry in existingDevice.Subscriptions)
-                {
-                    try
-                    {
-                        var subscription = await scanner.SubscribeAsync(
-                            existingDevice.ScanServiceAddress,
-                            subscriptionEntry.Key,
-                            _scanDestinations
-                        );
-
-                        existingDevice.Subscriptions[subscriptionEntry.Key] = subscription;
-
-                        logger.LogDebug(
-                            "Resubscribed {SubscriptionId} for device {DeviceId}",
-                            subscription.Identifier,
-                            deviceId
-                        );
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(
-                            ex,
-                            "Failed to resubscribe {SubscriptionId} for device {DeviceId}.",
-                            subscriptionEntry.Value.Identifier,
-                            deviceId
-                        );
-                    }
-                }
-
-                existingDevice.InstanceId = instanceId;
-                existingDevice.MetadataVersion = metadataVersion;
             }
         }
+
+        device.ModelName = updatedMetadata.ModelName;
+        device.SerialNumber = updatedMetadata.SerialNumber;
+        device.ScanServiceAddress = updatedMetadata.ScanServiceAddress;
+        device.InstanceId = instanceId;
+        device.MetadataVersion = metadataVersion;
     }
 
     private async Task AddNewDevice(
@@ -226,7 +165,6 @@ public class DeviceManager(
     )
     {
         var scanDeviceMetadata = await scanner.GetScanDeviceMetadataAsync(deviceId, mexAddress);
-
         var subscriptions = new Dictionary<SubscriptionEventType, Subscription>
         {
             {
@@ -238,8 +176,6 @@ public class DeviceManager(
                 )
             }
         };
-
-
         var newDevice = new Device
         {
             DeviceId = deviceId,
@@ -252,24 +188,16 @@ public class DeviceManager(
             Subscriptions = subscriptions,
             ScanTickets = configuration.Value.ScanProfiles.ToDictionary(
                 e => e.Id,
-                e => new ScanTicket
-                {
-                    Resolution = e.Resolution
-                }
+                e => new ScanTicket { Resolution = e.Resolution }
             ),
             InstanceId = instanceId,
             MetadataVersion = metadataVersion
         };
-
         deviceRepository.Add(newDevice);
-
         logger.LogInformation("Device added: {Device}", newDevice);
     }
 
-    public Task StartAsync(CancellationToken cancellationToken)
-    {
-        return Task.CompletedTask;
-    }
+    public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {

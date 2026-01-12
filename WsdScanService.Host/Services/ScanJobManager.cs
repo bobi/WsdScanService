@@ -1,9 +1,9 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
 using WsdScanService.Common.Configuration;
-using WsdScanService.Contracts.Repositories;
 using WsdScanService.Contracts.Scanner;
 using WsdScanService.Contracts.Scanner.Entities;
+using WsdScanService.Host.Repositories;
 using WsdScanService.Host.Utils;
 
 namespace WsdScanService.Host.Services
@@ -11,7 +11,7 @@ namespace WsdScanService.Host.Services
     internal class ScanJobManager(
         ILogger<ScanJobManager> logger,
         IOptions<ScanServiceConfiguration> configuration,
-        IDeviceRepository deviceRepository,
+        DeviceRepository deviceRepository,
         IWsScanner scanner)
         : BackgroundService, IScanJobManager
     {
@@ -26,10 +26,8 @@ namespace WsdScanService.Host.Services
             public required ScanJob ScanJob { get; init; }
         }
 
-        private async Task AddJob(string deviceId, string clientContext, string scanIdentifier, string? inputSource)
+        private async Task AddJob(Device device, string clientContext, string scanIdentifier, string? inputSource)
         {
-            var device = deviceRepository.GetById(deviceId);
-
             var scanJob = await scanner.CreateScanJobAsync(
                 device.ScanServiceAddress,
                 scanIdentifier,
@@ -152,9 +150,16 @@ namespace WsdScanService.Host.Services
             await scanner.CancelScanJobAsync(scanJob.Device.ScanServiceAddress, scanJob.ScanJob);
         }
 
-        public void StartNewJob(string deviceId, string clientContext, string scanIdentifier, string? inputSource)
+        public void StartNewJob(string deviceAddress, string clientContext, string scanIdentifier, string? inputSource)
         {
-            Task.Run(() => AddJob(deviceId, clientContext, scanIdentifier, inputSource));
+            if (deviceRepository.TryGetByHostAddress(deviceAddress, out var device))
+            {
+                Task.Run(() => AddJob(device, clientContext, scanIdentifier, inputSource));
+            }
+            else
+            {
+                logger.LogWarning("Device not found for address {DeviceAddress}", deviceAddress);
+            }
         }
     }
 }
