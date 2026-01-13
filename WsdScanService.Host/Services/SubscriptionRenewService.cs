@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
 using WsdScanService.Common.Configuration;
+using WsdScanService.Contracts.Discovery;
 using WsdScanService.Contracts.Scanner;
 using WsdScanService.Host.Repositories;
 
@@ -9,8 +11,12 @@ public class SubscriptionRenewService(
     ILogger<SubscriptionRenewService> logger,
     IOptions<ScanServiceConfiguration> configuration,
     DeviceRepository deviceRepository,
+    IDeviceManager deviceManager,
     IWsScanner scanner) : BackgroundService
 {
+    private readonly ConcurrentDictionary<string, DateTime> _renewalFailureTimes = new();
+    const int MaxMinutesBeforeRemoval = 3;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -66,6 +72,7 @@ public class SubscriptionRenewService(
                         );
 
                         subscription.Expires = newExpires;
+                        _renewalFailureTimes.TryRemove(device.DeviceId, out _);
 
                         logger.LogInformation(
                             "Subscription {SubscriptionId} renewed. New Expires: {Expires}",
@@ -75,12 +82,28 @@ public class SubscriptionRenewService(
                     }
                     catch (Exception ex)
                     {
+                        var firstFailure = _renewalFailureTimes.GetOrAdd(device.DeviceId, now);
+                        var minutesFailed = (now - firstFailure).TotalMinutes;
                         logger.LogError(
                             ex,
-                            "Failed to renew subscription {SubscriptionId} for device {DeviceId}",
+                            "Failed to renew subscription {SubscriptionId} for device {DeviceId} (failure since {FirstFailureTime}, {MinutesFailed:F1} minutes)",
                             subscription.Identifier,
-                            device.DeviceId
+                            device.DeviceId,
+                            firstFailure,
+                            minutesFailed
                         );
+
+                        if (minutesFailed >= MaxMinutesBeforeRemoval)
+                        {
+                            logger.LogWarning(
+                                "Device {DeviceId} could not be resubscribed for 5 minutes. Removing from DeviceRepository.",
+                                device.DeviceId
+                            );
+                            await deviceManager.RemoveDevice(device.DeviceId, device.InstanceId);
+                            _renewalFailureTimes.TryRemove(device.DeviceId, out _);
+                        }
+
+                        break;
                     }
                 }
             }
