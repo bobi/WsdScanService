@@ -6,6 +6,7 @@ using ClientContext = string;
 public class Subscription
 {
     public required string Identifier { get; init; }
+    
     public DateTime Expires { get; set; }
 
     public required IDictionary<ClientContext, DestinationToken> DestinationTokens { get; init; }

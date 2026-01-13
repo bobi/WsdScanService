@@ -35,7 +35,7 @@ public class DeviceManager(
             return Task.CompletedTask;
         }
 
-        removalTracker.Schedule(deviceId, async _ => await PerformDeviceRemoval(device));
+        removalTracker.Schedule(device.DeviceId, async _ => await PerformDeviceRemoval(device));
 
         return Task.CompletedTask;
     }

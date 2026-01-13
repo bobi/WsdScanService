@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
 using WsdScanService.Common.Configuration;
-using WsdScanService.Contracts.Discovery;
 using WsdScanService.Contracts.Scanner;
 using WsdScanService.Host.Repositories;
 
@@ -11,11 +10,11 @@ public class SubscriptionRenewService(
     ILogger<SubscriptionRenewService> logger,
     IOptions<ScanServiceConfiguration> configuration,
     DeviceRepository deviceRepository,
-    IDeviceManager deviceManager,
     IWsScanner scanner) : BackgroundService
 {
     private readonly ConcurrentDictionary<string, DateTime> _renewalFailureTimes = new();
-    const int MaxMinutesBeforeRemoval = 3;
+    
+    private const int MaxMinutesBeforeRemoval = 3;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -96,10 +95,12 @@ public class SubscriptionRenewService(
                         if (minutesFailed >= MaxMinutesBeforeRemoval)
                         {
                             logger.LogWarning(
-                                "Device {DeviceId} could not be resubscribed for 5 minutes. Removing from DeviceRepository.",
-                                device.DeviceId
+                                "Device {DeviceId} could not be resubscribed for {MaxMinutesBeforeRemoval} minutes. Removing from DeviceRepository.",
+                                device.DeviceId,
+                                MaxMinutesBeforeRemoval
                             );
-                            await deviceManager.RemoveDevice(device.DeviceId, device.InstanceId);
+                            
+                            deviceRepository.TryRemoveById(device.DeviceId, out _);
                             _renewalFailureTimes.TryRemove(device.DeviceId, out _);
                         }
 
