@@ -10,7 +10,7 @@ internal class DiscoveryConfiguration
 
     public TimeSpan ProbeInitialDelay { get; set; } = TimeSpan.FromSeconds(2);
 
-    public TimeSpan ProbeRepeatDelay { get; set; } = TimeSpan.FromSeconds(10);
+    public TimeSpan ProbeRepeatDelay { get; set; } = TimeSpan.FromSeconds(30);
 
-    public int ProbeRepeatTimes { get; set; } = 10;
+    public int ProbeRepeatTimes { get; set; } = 5;
 }
