@@ -3,10 +3,6 @@ namespace WsdScanService.Contracts.Scanner.Entities;
 public record ScanTicket
 {
     public static readonly ScanTicket DefaultScanTicket = new();
-    
-    public ScanTicket()
-    {
-    }
 
     public ScanTicket(ScanTicket scanTicket)
     {
