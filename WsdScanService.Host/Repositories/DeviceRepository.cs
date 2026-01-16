@@ -64,14 +64,8 @@ public class DeviceRepository
         {
             return resultUri.Host;
         }
-        else if (IPAddress.TryParse(addr, out var ipAddr))
-        {
-            return ipAddr.ToString();
-        }
-        else
-        {
-            return addr;
-        }
+
+        return IPAddress.TryParse(addr, out var ipAddr) ? ipAddr.ToString() : addr;
     }
 
     public bool TryGetById(string deviceId, [NotNullWhen(true)] out Device? device)

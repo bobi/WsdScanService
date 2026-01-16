@@ -8,7 +8,7 @@ namespace WsdScanService.Scanner.Services;
 
 internal class WsScanCallbackService(IScanJobManager scanJobManager) : IWsScannerCallback
 {
-    private RemoteEndpointMessageProperty GetRemoteEndpoint()
+    private static RemoteEndpointMessageProperty GetRemoteEndpoint()
     {
         if (OperationContext.Current.IncomingMessageProperties.TryGetValue(
                 RemoteEndpointMessageProperty.Name,

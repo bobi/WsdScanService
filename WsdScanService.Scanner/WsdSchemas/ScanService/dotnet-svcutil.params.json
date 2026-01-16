@@ -10,7 +10,6 @@
     ],
     "outputFile": "WsScanService.cs",
     "references": [
-      "/Users/andrey/projects/home/WsdScanService/WsdScanService.Contracts/bin/Debug/net9.0/WsdScanService.Common.dll",
       "CommunityToolkit.HighPerformance, {CommunityToolkit.HighPerformance, 8.4.0}",
       "CoreWCF.Primitives, {CoreWCF.Primitives, 1.7.0}",
       "Microsoft.AspNetCore.Authentication, {Microsoft.AspNetCore.Authentication, 2.1.2}",
@@ -74,8 +73,7 @@
       "System.Threading.Tasks, {System.Threading.Tasks, 4.3.0}",
       "System.Web.Services.Description, {System.Web.Services.Description, 8.1.1}",
       "System.Xml.ReaderWriter, {System.Xml.ReaderWriter, 4.3.0}",
-      "System.Xml.XmlDocument, {System.Xml.XmlDocument, 4.3.0}",
-      "YamlDotNet, {YamlDotNet, 16.3.0}"
+      "System.Xml.XmlDocument, {System.Xml.XmlDocument, 4.3.0}"
     ],
     "targetFramework": "net9.0",
     "typeReuseMode": "All"

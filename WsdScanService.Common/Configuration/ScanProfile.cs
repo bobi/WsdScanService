@@ -1,6 +1,6 @@
 namespace WsdScanService.Common.Configuration;
 
-public class ScanProfile
+public record ScanProfile
 {
     public string Id { get; } = $"{Guid.NewGuid()}";
 

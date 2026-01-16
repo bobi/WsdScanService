@@ -3,7 +3,6 @@ using System.ServiceModel.Channels;
 using System.ServiceModel.Description;
 using System.ServiceModel.Dispatcher;
 using System.Xml;
-using WsdScanService.Common.Extensions;
 using WsdScanService.Scanner.Extensions;
 
 namespace WsdScanService.Scanner.Wcf;

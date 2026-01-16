@@ -1,16 +1,16 @@
 namespace WsdScanService.Discovery.Configuration;
 
-internal class DiscoveryConfiguration
+internal record DiscoveryConfiguration
 {
     public const string WsDiscovery = "WsdScanService.Discovery";
 
-    public bool IpV6 { get; set; }
+    public bool IpV6 { get; init; }
 
-    public uint InstanceId { get; set; } = Convert.ToUInt32(DateTimeOffset.Now.ToUnixTimeSeconds());
+    public uint InstanceId { get; init; } = Convert.ToUInt32(DateTimeOffset.Now.ToUnixTimeSeconds());
 
-    public TimeSpan ProbeInitialDelay { get; set; } = TimeSpan.FromSeconds(2);
+    public TimeSpan ProbeInitialDelay { get; init; } = TimeSpan.FromSeconds(2);
 
-    public TimeSpan ProbeRepeatDelay { get; set; } = TimeSpan.FromSeconds(30);
+    public TimeSpan ProbeRepeatDelay { get; init; } = TimeSpan.FromSeconds(30);
 
-    public int ProbeRepeatTimes { get; set; } = 5;
+    public int ProbeRepeatTimes { get; init; } = 5;
 }

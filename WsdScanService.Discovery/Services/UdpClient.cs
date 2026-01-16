@@ -3,7 +3,9 @@ using System.Net.Sockets;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using WsdScanService.Discovery.Configuration;
 using WsdScanService.Discovery.Protocol;
+using SocketsUdpClient = System.Net.Sockets.UdpClient;
 
 namespace WsdScanService.Discovery.Services;
 
@@ -11,9 +13,9 @@ internal class UdpClient : IHostedService
 {
     private readonly ILogger<UdpClient> _logger;
     private readonly IPEndPoint _multicastAddressEndPoint;
-    private readonly System.Net.Sockets.UdpClient _udpClient;
+    private readonly SocketsUdpClient _udpClient;
 
-    public UdpClient(ILogger<UdpClient> logger, IOptions<Configuration.DiscoveryConfiguration> configuration)
+    public UdpClient(ILogger<UdpClient> logger, IOptions<DiscoveryConfiguration> configuration)
     {
         var multicastAddressEndPoint = configuration.Value.IpV6
             ? new IPEndPoint(
@@ -27,7 +29,7 @@ internal class UdpClient : IHostedService
 
         _logger = logger;
         _multicastAddressEndPoint = multicastAddressEndPoint;
-        _udpClient = new(_multicastAddressEndPoint.Port, _multicastAddressEndPoint.AddressFamily);
+        _udpClient = new SocketsUdpClient(_multicastAddressEndPoint.Port, _multicastAddressEndPoint.AddressFamily);
         _udpClient.Client.SendTimeout = 5000;
     }
 

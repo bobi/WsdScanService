@@ -1,8 +1,6 @@
 using System.ServiceModel;
 using System.Xml;
 using Microsoft.Extensions.Logging;
-using WsdScanService.Common;
-using WsdScanService.Contracts;
 using WsdScanService.Scanner.Contracts;
 using WsdScanService.Scanner.Wcf;
 

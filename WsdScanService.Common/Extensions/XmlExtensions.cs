@@ -67,7 +67,7 @@ public static class XmlExtensions
             Encoding = new UTF8Encoding(false),
             Indent = true,
             NamespaceHandling = NamespaceHandling.OmitDuplicates,
-            OmitXmlDeclaration = true,
+            OmitXmlDeclaration = true
         });
 
         serializer.Serialize(xmlWriter, obj, ns);

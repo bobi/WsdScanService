@@ -7,9 +7,11 @@ internal class HybridMessageEncoder : MessageEncoder
     private readonly MessageEncoder _textEncoder;
     private readonly IList<MessageEncoder> _otherEncoders;
 
-    public HybridMessageEncoder(MessageEncoderFactory textFactory,
+    public HybridMessageEncoder(
+        MessageEncoderFactory textFactory,
         MessageEncoderFactory[] otherFactories,
-        MessageVersion messageVersion)
+        MessageVersion messageVersion
+    )
     {
         _textEncoder = textFactory.Encoder;
         _otherEncoders = new List<MessageEncoder>(otherFactories.Select(e => e.Encoder));
@@ -29,8 +31,12 @@ internal class HybridMessageEncoder : MessageEncoder
         _textEncoder.WriteMessage(message, stream);
     }
 
-    public override ArraySegment<byte> WriteMessage(Message message, int maxMessageSize, BufferManager bufferManager,
-        int messageOffset)
+    public override ArraySegment<byte> WriteMessage(
+        Message message,
+        int maxMessageSize,
+        BufferManager bufferManager,
+        int messageOffset
+    )
     {
         return _textEncoder.WriteMessage(message, maxMessageSize, bufferManager, messageOffset);
     }
@@ -39,24 +45,18 @@ internal class HybridMessageEncoder : MessageEncoder
     {
         var messageEncoder = _otherEncoders.FirstOrDefault(e => e.IsContentTypeSupported(contentType));
 
-        if (messageEncoder != null)
-        {
-            return messageEncoder.ReadMessage(stream, maxSizeOfHeaders, contentType);
-        }
-
-        return _textEncoder.ReadMessage(stream, maxSizeOfHeaders, contentType);
+        return messageEncoder != null
+            ? messageEncoder.ReadMessage(stream, maxSizeOfHeaders, contentType)
+            : _textEncoder.ReadMessage(stream, maxSizeOfHeaders, contentType);
     }
 
     public override Message ReadMessage(ArraySegment<byte> buffer, BufferManager bufferManager, string contentType)
     {
         var messageEncoder = _otherEncoders.FirstOrDefault(e => e.IsContentTypeSupported(contentType));
 
-        if (messageEncoder != null)
-        {
-            return messageEncoder.ReadMessage(buffer, bufferManager, contentType);
-        }
-
-        return _textEncoder.ReadMessage(buffer, bufferManager, contentType);
+        return messageEncoder != null
+            ? messageEncoder.ReadMessage(buffer, bufferManager, contentType)
+            : _textEncoder.ReadMessage(buffer, bufferManager, contentType);
     }
 
     public override string MediaType => _textEncoder.MediaType;

@@ -45,7 +45,7 @@ internal class WsScanClientService(
                                 Resolution = new ResolutionPairExtType
                                 {
                                     Width = new IntOneExtType { Value = scanTicket.Resolution },
-                                    Height = new IntOneExtType { Value = scanTicket.Resolution },
+                                    Height = new IntOneExtType { Value = scanTicket.Resolution }
                                 }
                             }
                         }
@@ -60,7 +60,7 @@ internal class WsScanClientService(
         {
             JobId = response.CreateScanJobResponse1.JobId.Value,
             JobToken = response.CreateScanJobResponse1.JobToken.Value,
-            ImagesToTransfer = response.CreateScanJobResponse1.DocumentFinalParameters.ImagesToTransfer.Value,
+            ImagesToTransfer = response.CreateScanJobResponse1.DocumentFinalParameters.ImagesToTransfer.Value
         };
     }
 
@@ -72,7 +72,7 @@ internal class WsScanClientService(
         {
             CancelJobRequest1 = new CancelJobRequestType
             {
-                JobId = new IntOneExtType { Value = scanJob.JobId },
+                JobId = new IntOneExtType { Value = scanJob.JobId }
             }
         };
 

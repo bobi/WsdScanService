@@ -26,14 +26,14 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
         { "tiff", "tiff" }
     };
 
-    private readonly IDictionary<string, string> _sourceMap = new Dictionary<string, string>
+    private readonly Dictionary<string, string> _sourceMap = new()
     {
-        { "Platen", "Flatbed" },
+        { "Platen", "Flatbed" }
     };
 
-    private readonly IDictionary<string, string> _modeMap = new Dictionary<string, string>
+    private readonly Dictionary<string, string> _modeMap = new()
     {
-        { "Photo", "Color" },
+        { "Photo", "Color" }
     };
 
     private readonly ConcurrentDictionary<string, ScanJobInfo> _scanJobs = new();
@@ -66,9 +66,6 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
     }
 
     public Task<ScanJob> CreateScanJobAsync(
-        string scanServiceAddress,
-        string scanIdentifier,
-        string destinationToken,
         ScanTicket scanTicket
     )
     {
@@ -219,12 +216,7 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
             return resultUri.Host;
         }
 
-        if (IPAddress.TryParse(address, out var ipAddr))
-        {
-            return ipAddr.ToString();
-        }
-
-        return address;
+        return IPAddress.TryParse(address, out var ipAddr) ? ipAddr.ToString() : address;
     }
 
     public static string ReplaceNamedParameters(string template, Dictionary<string, string> parameters)

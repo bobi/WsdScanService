@@ -15,29 +15,28 @@ internal class WsEventingClientService(
     ILogger<WsEventingClientService> logger,
     IOptions<ScanServiceConfiguration> hostConfiguration)
 {
-    private readonly IDictionary<SubscriptionEventType, string> _eventTypeToActionMap =
-        new Dictionary<SubscriptionEventType, string>
+    private readonly Dictionary<SubscriptionEventType, string> _eventTypeToActionMap = new()
+    {
+        { SubscriptionEventType.ScanAvailableEvent, Xd.ScanService.CallbackActions.ScanAvailableEvent },
         {
-            { SubscriptionEventType.ScanAvailableEvent, Xd.ScanService.CallbackActions.ScanAvailableEvent },
-            {
-                SubscriptionEventType.ScannerElementsChangeEvent,
-                Xd.ScanService.CallbackActions.ScannerElementsChangeEvent
-            },
-            {
-                SubscriptionEventType.ScannerStatusSummaryEvent,
-                Xd.ScanService.CallbackActions.ScannerStatusSummaryEvent
-            },
-            {
-                SubscriptionEventType.ScannerStatusConditionEvent,
-                Xd.ScanService.CallbackActions.ScannerStatusConditionEvent
-            },
-            {
-                SubscriptionEventType.ScannerStatusConditionClear,
-                Xd.ScanService.CallbackActions.ScannerStatusConditionClear
-            },
-            { SubscriptionEventType.JobStatusEvent, Xd.ScanService.CallbackActions.JobStatusEvent },
-            { SubscriptionEventType.JobEndStateEvent, Xd.ScanService.CallbackActions.JobEndStateEvent },
-        };
+            SubscriptionEventType.ScannerElementsChangeEvent,
+            Xd.ScanService.CallbackActions.ScannerElementsChangeEvent
+        },
+        {
+            SubscriptionEventType.ScannerStatusSummaryEvent,
+            Xd.ScanService.CallbackActions.ScannerStatusSummaryEvent
+        },
+        {
+            SubscriptionEventType.ScannerStatusConditionEvent,
+            Xd.ScanService.CallbackActions.ScannerStatusConditionEvent
+        },
+        {
+            SubscriptionEventType.ScannerStatusConditionClear,
+            Xd.ScanService.CallbackActions.ScannerStatusConditionClear
+        },
+        { SubscriptionEventType.JobStatusEvent, Xd.ScanService.CallbackActions.JobStatusEvent },
+        { SubscriptionEventType.JobEndStateEvent, Xd.ScanService.CallbackActions.JobEndStateEvent }
+    };
 
     public async Task<Subscription> SubscribeAsync(
         string scanServiceAddress,
@@ -57,9 +56,10 @@ internal class WsEventingClientService(
                 ? DateTime.Now + XmlConvert.ToTimeSpan(soapResponse.Expires)
                 : DateTime.MaxValue,
             DestinationTokens = soapResponse.DestinationResponses?.DestinationResponse?.ToDictionary(
-                e => e.ClientContext.Value,
-                e => e.DestinationToken.Value
-            ).ToImmutableDictionary() ?? ImmutableDictionary<string, string>.Empty
+                    e => e.ClientContext.Value,
+                    e => e.DestinationToken.Value
+                )
+                .ToImmutableDictionary() ?? ImmutableDictionary<string, string>.Empty
         };
     }
 
@@ -85,7 +85,7 @@ internal class WsEventingClientService(
     {
         await using var client = WsEventingClient.Create(scanServiceAddress, logger);
 
-        var unsubscribeRequest = new UnsubscribeRequest { Identifier = subscriptionIdentifier, };
+        var unsubscribeRequest = new UnsubscribeRequest { Identifier = subscriptionIdentifier };
 
         await client.UnsubscribeAsync(unsubscribeRequest);
     }
@@ -108,7 +108,7 @@ internal class WsEventingClientService(
             EndTo = new EndpointReference<EventingReferenceParameters, ReferenceProperties>
             {
                 Address = endpoint,
-                ReferenceParameters = new EventingReferenceParameters { Identifier = uniqueId.ToString() },
+                ReferenceParameters = new EventingReferenceParameters { Identifier = uniqueId.ToString() }
             },
             Delivery = new Delivery
             {
@@ -116,7 +116,7 @@ internal class WsEventingClientService(
                 NotifyTo = new EndpointReference<EventingReferenceParameters, ReferenceProperties>
                 {
                     Address = endpoint,
-                    ReferenceParameters = new EventingReferenceParameters { Identifier = uniqueId.ToString() },
+                    ReferenceParameters = new EventingReferenceParameters { Identifier = uniqueId.ToString() }
                 }
             },
             Filter = new Filter

@@ -22,5 +22,5 @@ public enum SubscriptionEventType
     ScannerStatusConditionEvent,
     ScannerStatusConditionClear,
     JobStatusEvent,
-    JobEndStateEvent,
+    JobEndStateEvent
 }
