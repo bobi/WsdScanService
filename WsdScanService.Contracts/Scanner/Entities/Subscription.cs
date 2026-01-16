@@ -1,16 +1,17 @@
-namespace WsdScanService.Contracts.Scanner.Entities;
-
 using System.Collections.Immutable;
-using DestinationToken = string;
-using ClientContext = string;
+
+namespace WsdScanService.Contracts.Scanner.Entities;
 
 public record Subscription
 {
     public required string Identifier { get; init; }
-    
+
     public DateTime Expires { get; init; }
 
-    public required IImmutableDictionary<ClientContext, DestinationToken> DestinationTokens { get; init; }
+    /// <summary>
+    /// Key: ClientContext, Value: DestinationToken
+    /// </summary>
+    public required IImmutableDictionary<string, string> DestinationTokens { get; init; }
 }
 
 public enum SubscriptionEventType
