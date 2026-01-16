@@ -1,6 +1,6 @@
 namespace WsdScanService.Contracts.Scanner.Entities;
 
-public class ScanJob
+public record ScanJob
 {
     public required int JobId { get; init; }
     public required string JobToken { get; init; }

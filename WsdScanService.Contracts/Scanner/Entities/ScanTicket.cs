@@ -1,6 +1,6 @@
 namespace WsdScanService.Contracts.Scanner.Entities;
 
-public class ScanTicket
+public record ScanTicket
 {
     public static readonly ScanTicket DefaultScanTicket = new();
     

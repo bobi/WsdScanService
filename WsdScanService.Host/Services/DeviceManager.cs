@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Microsoft.Extensions.Options;
 using WsdScanService.Common.Configuration;
 using WsdScanService.Contracts.Discovery;
@@ -54,7 +55,11 @@ public class DeviceManager(
         }
         catch (Exception e)
         {
-            logger.LogError(e, "Error while removing device subscription: {DeviceId}", device.DeviceId);
+            logger.LogError(
+                "Error while removing device subscription: {DeviceId}. {Message}",
+                device.DeviceId,
+                e.Message
+            );
         }
     }
 
@@ -90,11 +95,10 @@ public class DeviceManager(
                 if (retryAttempt < maxRetries - 1)
                 {
                     logger.LogWarning(
-                        ex,
-                        "Error: {ErrorMessage}. Retrying in {Delay}ms... (Attempt {Attempt})",
-                        ex.Message,
+                        "Error while adding device, retrying in {Delay}ms... (Attempt {Attempt}). {Message}",
                         delayMs,
-                        retryAttempt + 1
+                        retryAttempt + 1,
+                        ex.Message
                     );
                     await Task.Delay(delayMs);
                 }
@@ -121,17 +125,18 @@ public class DeviceManager(
         );
 
         var updatedMetadata = await scanner.GetScanDeviceMetadataAsync(device.DeviceId, mexAddress);
+        var newSubscriptions = new Dictionary<SubscriptionEventType, Subscription>(device.Subscriptions);
 
         foreach (var subscriptionEntry in device.Subscriptions)
         {
             try
             {
                 var subscription = await scanner.SubscribeAsync(
-                    device.ScanServiceAddress,
+                    updatedMetadata.ScanServiceAddress,
                     subscriptionEntry.Key,
                     _scanDestinations
                 );
-                device.Subscriptions[subscriptionEntry.Key] = subscription;
+                newSubscriptions[subscriptionEntry.Key] = subscription;
                 logger.LogDebug(
                     "Resubscribed {SubscriptionId} for device {DeviceId}",
                     subscription.Identifier,
@@ -141,19 +146,26 @@ public class DeviceManager(
             catch (Exception ex)
             {
                 logger.LogError(
-                    ex,
-                    "Failed to resubscribe {SubscriptionId} for device {DeviceId}.",
+                    "Failed to resubscribe {SubscriptionId} for device {DeviceId}. {Message}",
                     subscriptionEntry.Value.Identifier,
-                    device.DeviceId
+                    device.DeviceId,
+                    ex.Message
                 );
             }
         }
 
-        device.ModelName = updatedMetadata.ModelName;
-        device.SerialNumber = updatedMetadata.SerialNumber;
-        device.ScanServiceAddress = updatedMetadata.ScanServiceAddress;
-        device.InstanceId = instanceId;
-        device.MetadataVersion = metadataVersion;
+        var updatedDevice = device with
+        {
+            MexAddress = mexAddress,
+            ModelName = updatedMetadata.ModelName,
+            SerialNumber = updatedMetadata.SerialNumber,
+            ScanServiceAddress = updatedMetadata.ScanServiceAddress,
+            InstanceId = instanceId,
+            MetadataVersion = metadataVersion,
+            Subscriptions = newSubscriptions.ToImmutableDictionary()
+        };
+
+        deviceRepository.Update(updatedDevice);
     }
 
     private async Task AddNewDevice(
@@ -184,12 +196,13 @@ public class DeviceManager(
             ScanServiceAddress = scanDeviceMetadata.ScanServiceAddress,
             ModelName = scanDeviceMetadata.ModelName,
             SerialNumber = scanDeviceMetadata.SerialNumber,
-            ScanDestinations = _scanDestinations,
-            Subscriptions = subscriptions,
+            ScanDestinations = _scanDestinations.ToImmutableList(),
+            Subscriptions = subscriptions.ToImmutableDictionary(),
             ScanTickets = configuration.Value.ScanProfiles.ToDictionary(
-                e => e.Id,
-                e => new ScanTicket { Resolution = e.Resolution }
-            ),
+                    e => e.Id,
+                    e => new ScanTicket { Resolution = e.Resolution }
+                )
+                .ToImmutableDictionary(),
             InstanceId = instanceId,
             MetadataVersion = metadataVersion
         };
@@ -201,7 +214,7 @@ public class DeviceManager(
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        foreach (var device in deviceRepository.ToCollection())
+        foreach (var device in deviceRepository.ToImmutableList())
         {
             await PerformDeviceRemoval(device);
         }

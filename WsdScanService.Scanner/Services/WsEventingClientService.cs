@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Xml;
 using Windows.Wdp.Scan;
 using Microsoft.Extensions.Logging;
@@ -58,7 +59,7 @@ internal class WsEventingClientService(
             DestinationTokens = soapResponse.DestinationResponses?.DestinationResponse?.ToDictionary(
                 e => e.ClientContext.Value,
                 e => e.DestinationToken.Value
-            ) ?? new Dictionary<string, string>()
+            ).ToImmutableDictionary() ?? ImmutableDictionary<string, string>.Empty
         };
     }
 

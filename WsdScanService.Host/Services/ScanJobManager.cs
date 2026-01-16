@@ -98,6 +98,10 @@ namespace WsdScanService.Host.Services
                                 logger.LogInformation("Successfully retrieved images for job {JobId}", jobId);
                             }
                         }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
                         catch (Exception ex)
                         {
                             await CancelJob(scanJob);

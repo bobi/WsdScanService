@@ -12,7 +12,7 @@ public class DeviceRemovalTracker(ILogger<DeviceManager> logger, IOptions<ScanSe
 
     public void Schedule(string deviceId, Func<CancellationToken, Task> removalAction)
     {
-        logger.LogDebug("Device marked for removal (grace period started): {DeviceId}", deviceId);
+        logger.LogInformation("Device marked for removal (grace period started): {DeviceId}", deviceId);
 
         Cancel(deviceId);
 
@@ -32,7 +32,7 @@ public class DeviceRemovalTracker(ILogger<DeviceManager> logger, IOptions<ScanSe
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "Error during device removal for {DeviceId}", deviceId);
+                    logger.LogError("Error during device removal for {DeviceId}. {Message}", deviceId, ex.Message);
                 }
             },
             cts.Token

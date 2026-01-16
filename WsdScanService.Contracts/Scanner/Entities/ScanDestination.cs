@@ -2,7 +2,7 @@ namespace WsdScanService.Contracts.Scanner.Entities;
 
 using ClientContext = string;
 
-public class ScanDestination
+public record ScanDestination
 {
     public required string DisplayName { get; init; }
     
