@@ -57,7 +57,7 @@ internal static class DiscoveryXmlSerializerNamespaces
         new("wsa", ProtocolConstants.Namespaces.WsAddressing),
         new("wsdisco", ProtocolConstants.Namespaces.WsDiscovery),
         new("devprof", ProtocolConstants.Namespaces.DevicesProfile),
-        new("wscn", ProtocolConstants.Namespaces.WsScanner),
+        new("wscn", ProtocolConstants.Namespaces.WsScanner)
     ];
 
     private static readonly Dictionary<string, XmlQualifiedName> NamespacesDictionary =

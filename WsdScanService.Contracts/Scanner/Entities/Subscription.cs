@@ -1,14 +1,17 @@
+using System.Collections.Immutable;
+
 namespace WsdScanService.Contracts.Scanner.Entities;
 
-using DestinationToken = string;
-using ClientContext = string;
-
-public class Subscription
+public record Subscription
 {
     public required string Identifier { get; init; }
-    public DateTime Expires { get; set; }
 
-    public required IDictionary<ClientContext, DestinationToken> DestinationTokens { get; init; }
+    public DateTime Expires { get; init; }
+
+    /// <summary>
+    /// Key: ClientContext, Value: DestinationToken
+    /// </summary>
+    public required IImmutableDictionary<string, string> DestinationTokens { get; init; }
 }
 
 public enum SubscriptionEventType
@@ -19,5 +22,5 @@ public enum SubscriptionEventType
     ScannerStatusConditionEvent,
     ScannerStatusConditionClear,
     JobStatusEvent,
-    JobEndStateEvent,
+    JobEndStateEvent
 }

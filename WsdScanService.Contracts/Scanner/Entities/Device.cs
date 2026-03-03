@@ -1,25 +1,30 @@
+using System.Collections.Immutable;
+
 namespace WsdScanService.Contracts.Scanner.Entities;
 
-using ClientContext = string;
-
-public class Device : ScanDeviceMetadata
+public record Device : ScanDeviceMetadata
 {
     public required string DeviceId { get; init; }
 
     public required string Type { get; init; }
 
     public required string MexAddress { get; init; }
-    
-    public uint InstanceId { get; set; }
-    
-    public uint MetadataVersion { get; set; }
 
-    public required IDictionary<SubscriptionEventType, Subscription> Subscriptions { get; init; }
-    
-    public required IDictionary<ClientContext, ScanTicket> ScanTickets { get; init; }
+    public uint InstanceId { get; init; }
 
-    public required IEnumerable<ScanDestination> ScanDestinations { get; init; }
-    
+    public uint MetadataVersion { get; init; }
+
+    public IImmutableDictionary<SubscriptionEventType, Subscription> Subscriptions { get; init; } =
+        ImmutableDictionary<SubscriptionEventType, Subscription>.Empty;
+
+    /// <summary>
+    /// Key: ClientContext, Value: ScanTicket
+    /// </summary>
+    public IImmutableDictionary<string, ScanTicket> ScanTickets { get; init; } =
+        ImmutableDictionary<string, ScanTicket>.Empty;
+
+    public IImmutableList<ScanDestination> ScanDestinations { get; init; } = ImmutableList<ScanDestination>.Empty;
+
     public override string ToString()
     {
         return

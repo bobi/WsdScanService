@@ -1,3 +1,4 @@
+using System.Xml;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -36,7 +37,7 @@ internal class UdpPublisher(
                     SoapHeader.Create(ProtocolConstants.Actions.ProbeAction, ProbeMessageId, _instanceId),
                     ProbeBody.Create(
                         [
-                            new("Device", ProtocolConstants.Namespaces.DevicesProfile),
+                            new XmlQualifiedName("Device", ProtocolConstants.Namespaces.DevicesProfile)
                         ]
                     )
                 );

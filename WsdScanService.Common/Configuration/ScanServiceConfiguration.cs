@@ -1,6 +1,6 @@
 namespace WsdScanService.Common.Configuration;
 
-public class ScanServiceConfiguration
+public record ScanServiceConfiguration
 {
     public const string WsdScanService = "WsdScanService";
 

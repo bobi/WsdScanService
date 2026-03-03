@@ -14,7 +14,8 @@ public class HostIpResolverService(ILogger<HostIpResolverService> logger)
         {
             ipAddr = NetworkInterface.GetAllNetworkInterfaces()
                 .Where(n => n.OperationalStatus == OperationalStatus.Up &&
-                            n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+                            n.NetworkInterfaceType != NetworkInterfaceType.Loopback
+                )
                 .SelectMany(n => n.GetIPProperties().UnicastAddresses)
                 .Where(a => a.Address.AddressFamily == AddressFamily.InterNetwork)
                 .Select(a => a.Address.ToString())
@@ -32,8 +33,9 @@ public class HostIpResolverService(ILogger<HostIpResolverService> logger)
     private static string GetLoopbackIpAddress()
     {
         var ipAddress = NetworkInterface.GetAllNetworkInterfaces()
-            .Where(n => n.OperationalStatus == OperationalStatus.Up &&
-                        n.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+            .Where(n => n is
+                { OperationalStatus: OperationalStatus.Up, NetworkInterfaceType: NetworkInterfaceType.Loopback }
+            )
             .SelectMany(n => n.GetIPProperties().UnicastAddresses)
             .Where(a => a.Address.AddressFamily == AddressFamily.InterNetwork)
             .Select(a => a.Address.ToString())

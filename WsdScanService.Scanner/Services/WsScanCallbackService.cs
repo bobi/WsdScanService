@@ -1,17 +1,14 @@
 using CoreWCF;
 using CoreWCF.Channels;
-using WsdScanService.Contracts.Repositories;
 using WsdScanService.Contracts.Scanner;
 using WsdScanService.Contracts.ScanService;
 using WsdScanService.Scanner.Contracts;
 
 namespace WsdScanService.Scanner.Services;
 
-internal class WsScanCallbackService(
-    IDeviceRepository deviceRepository,
-    IScanJobManager scanJobManager) : IWsScannerCallback
+internal class WsScanCallbackService(IScanJobManager scanJobManager) : IWsScannerCallback
 {
-    private RemoteEndpointMessageProperty GetRemoteEndpoint()
+    private static RemoteEndpointMessageProperty GetRemoteEndpoint()
     {
         if (OperationContext.Current.IncomingMessageProperties.TryGetValue(
                 RemoteEndpointMessageProperty.Name,
@@ -29,10 +26,8 @@ internal class WsScanCallbackService(
     {
         var remoteEndpoint = GetRemoteEndpoint();
 
-        var device = deviceRepository.GetByHostAddress(remoteEndpoint.Address);
-
         scanJobManager.StartNewJob(
-            device.DeviceId,
+            remoteEndpoint.Address,
             request.ScanAvailableEvent1.ClientContext.Value,
             request.ScanAvailableEvent1.ScanIdentifier.Value,
             request.ScanAvailableEvent1.InputSource?.Value

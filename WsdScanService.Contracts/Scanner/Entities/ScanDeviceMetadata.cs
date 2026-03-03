@@ -1,12 +1,12 @@
 namespace WsdScanService.Contracts.Scanner.Entities;
 
-public class ScanDeviceMetadata
+public record ScanDeviceMetadata
 {
-    public required string ModelName { get; set; }
+    public required string ModelName { get; init; }
 
-    public required string SerialNumber { get; set; }
+    public required string SerialNumber { get; init; }
 
-    public required string ScanServiceAddress { get; set; }
+    public required string ScanServiceAddress { get; init; }
 
     public override string ToString()
     {

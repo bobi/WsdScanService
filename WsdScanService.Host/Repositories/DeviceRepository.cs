@@ -1,20 +1,59 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
-using WsdScanService.Contracts.Repositories;
 using WsdScanService.Contracts.Scanner.Entities;
 
 namespace WsdScanService.Host.Repositories;
 
-public class DeviceRepository : IDeviceRepository
+public class DeviceRepository
 {
     private readonly ConcurrentDictionary<string, Device> _devicesById = new();
 
     private readonly ConcurrentDictionary<string, Device> _devicesByAddress = new();
 
+    private readonly Lock _writeLock = new();
+
     public void Add(Device device)
     {
-        _devicesById[device.DeviceId] = device;
-        _devicesByAddress[GetDeviceAddress(device)] = device;
+        lock (_writeLock)
+        {
+            _devicesById[device.DeviceId] = device;
+            _devicesByAddress[GetDeviceAddress(device)] = device;
+        }
+    }
+
+    public void Update(Device device)
+    {
+        lock (_writeLock)
+        {
+            _devicesById.TryGetValue(device.DeviceId, out var oldDevice);
+            _devicesById[device.DeviceId] = device;
+
+            var newAddress = GetDeviceAddress(device);
+            _devicesByAddress[newAddress] = device;
+
+            if (oldDevice != null)
+            {
+                var oldAddress = GetDeviceAddress(oldDevice);
+                if (oldAddress != newAddress)
+                {
+                    _devicesByAddress.TryRemove(oldAddress, out _);
+                }
+            }
+        }
+    }
+
+    public void UpdateAtomic(string deviceId, Func<Device, Device> updateFactory)
+    {
+        lock (_writeLock)
+        {
+            if (_devicesById.TryGetValue(deviceId, out var device))
+            {
+                var newDevice = updateFactory(device);
+                Update(newDevice);
+            }
+        }
     }
 
     private static string GetDeviceAddress(Device device)
@@ -25,62 +64,58 @@ public class DeviceRepository : IDeviceRepository
         {
             return resultUri.Host;
         }
-        else if (IPAddress.TryParse(addr, out var ipAddr))
+
+        return IPAddress.TryParse(addr, out var ipAddr) ? ipAddr.ToString() : addr;
+    }
+
+    public bool TryGetById(string deviceId, [NotNullWhen(true)] out Device? device)
+    {
+        lock (_writeLock)
         {
-            return ipAddr.ToString();
+            return _devicesById.TryGetValue(deviceId, out device);
         }
-        else
+    }
+
+    public bool TryGetByHostAddress(string address, [NotNullWhen(true)] out Device? device)
+    {
+        return _devicesByAddress.TryGetValue(address, out device);
+    }
+
+    public bool TryRemoveById(string deviceId, [NotNullWhen(true)] out Device? device)
+    {
+        lock (_writeLock)
         {
-            return addr;
+            var remove = _devicesById.TryRemove(deviceId, out device);
+
+            if (remove && device != null)
+            {
+                remove &= _devicesByAddress.TryRemove(GetDeviceAddress(device), out _);
+            }
+
+            return remove;
         }
     }
 
-    public Device GetById(string deviceId)
+    public bool TryRemoveByAddress(string address, [NotNullWhen(true)] out Device? device)
     {
-        return _devicesById[deviceId];
-    }
-
-    public bool HasById(string deviceId)
-    {
-        return _devicesById.ContainsKey(deviceId);
-    }
-
-    public Device GetByHostAddress(string address)
-    {
-        return _devicesByAddress[address];
-    }
-
-    public bool HasByHostAddress(string address)
-    {
-        return _devicesByAddress.ContainsKey(address);
-    }
-
-    public bool RemoveById(string deviceId)
-    {
-        var remove = _devicesById.Remove(deviceId, out var device);
-
-        if (remove && device != null)
+        lock (_writeLock)
         {
-            remove &= _devicesByAddress.Remove(GetDeviceAddress(device), out _);
-        }
+            var remove = _devicesByAddress.TryRemove(address, out device);
 
-        return remove;
+            if (remove && device != null)
+            {
+                remove &= _devicesById.TryRemove(device.DeviceId, out _);
+            }
+
+            return remove;
+        }
     }
 
-    public bool RemoveByAddress(string address)
+    public IImmutableList<Device> ToImmutableList()
     {
-        var remove = _devicesByAddress.Remove(address, out var device);
-
-        if (remove && device != null)
+        lock (_writeLock)
         {
-            remove &= _devicesById.Remove(device.DeviceId, out _);
+            return _devicesById.Values.ToImmutableList();
         }
-
-        return remove;
-    }
-
-    public ICollection<Device> ToCollection()
-    {
-        return _devicesById.Values.ToList();
     }
 }

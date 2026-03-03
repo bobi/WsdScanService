@@ -48,9 +48,6 @@ internal class WsScanner(
         if (configuration.Value.Sane?.UseSaneBackend ?? false)
         {
             return await saneScanner.CreateScanJobAsync(
-                scanServiceAddress,
-                scanIdentifier,
-                destinationToken,
                 scanTicket
             );
         }

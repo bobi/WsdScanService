@@ -19,7 +19,7 @@ internal class WsdClientBinding : CustomBinding
             MaxBufferSize = MaxBufferSize,
             MaxReceivedMessageSize = MaxReceivedMessageSize,
             AllowCookies = true,
-            ManualAddressing = manualAddressing,
+            ManualAddressing = manualAddressing
         };
 
         if (_proxyAddress != null)

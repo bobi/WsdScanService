@@ -13,7 +13,7 @@ internal class WsdServerBinding : CustomBinding
 
         var httpTransport = new HttpTransportBindingElement
         {
-            ManualAddressing = manualAddressing,
+            ManualAddressing = manualAddressing
         };
 
         Elements.Add(textMessageEncoding);

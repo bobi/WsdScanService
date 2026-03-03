@@ -26,14 +26,14 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
         { "tiff", "tiff" }
     };
 
-    private readonly IDictionary<string, string> _sourceMap = new Dictionary<string, string>
+    private readonly Dictionary<string, string> _sourceMap = new()
     {
-        { "Platen", "Flatbed" },
+        { "Platen", "Flatbed" }
     };
 
-    private readonly IDictionary<string, string> _modeMap = new Dictionary<string, string>
+    private readonly Dictionary<string, string> _modeMap = new()
     {
-        { "Photo", "Color" },
+        { "Photo", "Color" }
     };
 
     private readonly ConcurrentDictionary<string, ScanJobInfo> _scanJobs = new();
@@ -66,9 +66,6 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
     }
 
     public Task<ScanJob> CreateScanJobAsync(
-        string scanServiceAddress,
-        string scanIdentifier,
-        string destinationToken,
         ScanTicket scanTicket
     )
     {
@@ -107,7 +104,127 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
             throw new InvalidOperationException("Scan job not found");
         }
 
-        var outputPath = Path.Combine(Path.GetTempPath(), "scan-image-output");
+        string? scannedImagePath = null;
+        string? transformedImagePath = null;
+
+        try
+        {
+            scannedImagePath = await ScanImage(saneDevice, scanServiceAddress, scanJobInfo);
+            transformedImagePath = await TransformImage(scannedImagePath);
+
+            var imageData = await File.ReadAllBytesAsync(transformedImagePath);
+
+            return imageData;
+        }
+        catch (InvalidExitCodeException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, ex.Message);
+        }
+        finally
+        {
+            if (scannedImagePath != null && File.Exists(scannedImagePath))
+            {
+                File.Delete(scannedImagePath);
+            }
+
+            if (transformedImagePath != null && scannedImagePath != transformedImagePath &&
+                File.Exists(transformedImagePath))
+            {
+                File.Delete(transformedImagePath);
+            }
+
+            _scanJobs.TryRemove(scanJob.JobToken, out _);
+        }
+
+        throw new InvalidOperationException();
+    }
+
+    private async Task<string> TransformImage(string inputImagePath)
+    {
+        if (string.IsNullOrEmpty(configuration.Value.Sane?.ImageConverter?.Path))
+        {
+            return inputImagePath;
+        }
+
+        var outputPath = Path.Combine(Path.GetTempPath(), $"scan-transform-image-output-{Guid.NewGuid()}");
+
+        var info = new ProcessStartInfo
+        {
+            FileName = configuration.Value.Sane.ImageConverter.Path,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            WorkingDirectory = Path.GetTempPath()
+        };
+
+        var namedParameters = new Dictionary<string, string>
+        {
+            { "InputPath", inputImagePath },
+            { "OutputPath", outputPath }
+        };
+
+        foreach (var arg in configuration.Value.Sane?.ImageConverter?.Args ?? [])
+        {
+            info.ArgumentList.Add(ReplaceNamedParameters(arg, namedParameters));
+        }
+
+        logger.LogDebug(
+            "Running ImageConverter: {FileName} {Arguments}",
+            info.FileName,
+            string.Join(" ", info.ArgumentList)
+        );
+
+        using var process = new Process();
+
+        process.StartInfo = info;
+
+        var lockObject = new object();
+
+        process.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data != null)
+            {
+                lock (lockObject)
+                {
+                    logger.LogInformation("STDOUT: {EData}", e.Data);
+                }
+            }
+        };
+        process.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data != null)
+            {
+                lock (lockObject)
+                {
+                    logger.LogError("STDERR: {EData}", e.Data);
+                }
+            }
+        };
+
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        await process.WaitForExitAsync();
+
+        logger.LogDebug("ImageConverter Exit code: {ProcessExitCode}", process.ExitCode);
+
+        if (process.ExitCode == 0)
+        {
+            return outputPath;
+        }
+        else
+        {
+            throw new InvalidExitCodeException($"ImageConverter exit code: {process.ExitCode}");
+        }
+    }
+
+    private async Task<string> ScanImage(string saneDevice, string scanServiceAddress, ScanJobInfo scanJobInfo)
+    {
+        var outputPath = Path.Combine(Path.GetTempPath(), $"scan-image-output-{Guid.NewGuid()}");
 
         var info = new ProcessStartInfo
         {
@@ -129,7 +246,7 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
                 "--source",
                 _sourceMap[scanJobInfo.ScanTicket.InputSource],
                 "--format",
-                _formatMap[scanJobInfo.ScanTicket.Format],
+                configuration.Value.Sane?.Format ?? _formatMap[scanJobInfo.ScanTicket.Format],
                 "--output-file",
                 outputPath
             },
@@ -146,69 +263,48 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
 
         logger.LogDebug("Running sane: {FileName} {Arguments}", info.FileName, string.Join(" ", info.ArgumentList));
 
-        try
+        using var process = new Process();
+
+        process.StartInfo = info;
+
+        var lockObject = new object();
+
+        process.OutputDataReceived += (_, e) =>
         {
-            using var process = new Process();
-
-            process.StartInfo = info;
-
-            var lockObject = new object();
-
-            process.OutputDataReceived += (_, e) =>
+            if (e.Data != null)
             {
-                if (e.Data != null)
+                lock (lockObject)
                 {
-                    lock (lockObject)
-                    {
-                        logger.LogInformation("STDOUT: {EData}", e.Data);
-                    }
+                    logger.LogInformation("STDOUT: {EData}", e.Data);
                 }
-            };
-            process.ErrorDataReceived += (_, e) =>
+            }
+        };
+        process.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data != null)
             {
-                if (e.Data != null)
+                lock (lockObject)
                 {
-                    lock (lockObject)
-                    {
-                        logger.LogError("STDERR: {EData}", e.Data);
-                    }
+                    logger.LogError("STDERR: {EData}", e.Data);
                 }
-            };
-
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-            await process.WaitForExitAsync();
-
-            logger.LogDebug("Sane Exit code: {ProcessExitCode}", process.ExitCode);
-
-            if (process.ExitCode == 0)
-            {
-                var imageData = await File.ReadAllBytesAsync(outputPath);
-
-                File.Delete(outputPath);
-
-                return imageData;
             }
-            else
-            {
-                throw new InvalidExitCodeException($"Sane exit code: {process.ExitCode}");
-            }
-        }
-        catch (InvalidExitCodeException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, ex.Message);
-        }
-        finally
-        {
-            _scanJobs.TryRemove(scanJob.JobToken, out _);
-        }
+        };
 
-        throw new InvalidOperationException();
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        await process.WaitForExitAsync();
+
+        logger.LogDebug("Sane Exit code: {ProcessExitCode}", process.ExitCode);
+
+        if (process.ExitCode == 0)
+        {
+            return outputPath;
+        }
+        else
+        {
+            throw new InvalidExitCodeException($"Sane exit code: {process.ExitCode}");
+        }
     }
 
 
@@ -219,12 +315,7 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
             return resultUri.Host;
         }
 
-        if (IPAddress.TryParse(address, out var ipAddr))
-        {
-            return ipAddr.ToString();
-        }
-
-        return address;
+        return IPAddress.TryParse(address, out var ipAddr) ? ipAddr.ToString() : address;
     }
 
     public static string ReplaceNamedParameters(string template, Dictionary<string, string> parameters)

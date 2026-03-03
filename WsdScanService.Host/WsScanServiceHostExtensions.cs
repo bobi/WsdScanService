@@ -1,6 +1,5 @@
 using WsdScanService.Common.Configuration;
 using WsdScanService.Contracts.Discovery;
-using WsdScanService.Contracts.Repositories;
 using WsdScanService.Contracts.Scanner;
 using WsdScanService.Host.Repositories;
 using WsdScanService.Host.Services;
@@ -26,8 +25,9 @@ public static class WsScanServiceHostExtensions
                 }
             );
 
-        services.AddSingleton<IDeviceRepository, DeviceRepository>();
+        services.AddSingleton<DeviceRepository>();
 
+        services.AddSingleton<DeviceRemovalTracker>();
         services.AddSingleton<IDeviceManager, DeviceManager>()
             .AddHostedService(provider => provider.GetRequiredService<IDeviceManager>());
 

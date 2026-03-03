@@ -1,16 +1,22 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
 using WsdScanService.Common.Configuration;
-using WsdScanService.Contracts.Repositories;
 using WsdScanService.Contracts.Scanner;
+using WsdScanService.Contracts.Scanner.Entities;
+using WsdScanService.Host.Repositories;
 
 namespace WsdScanService.Host.Services;
 
 public class SubscriptionRenewService(
     ILogger<SubscriptionRenewService> logger,
     IOptions<ScanServiceConfiguration> configuration,
-    IDeviceRepository deviceRepository,
+    DeviceRepository deviceRepository,
     IWsScanner scanner) : BackgroundService
 {
+    private readonly ConcurrentDictionary<string, DateTime> _renewalFailureTimes = new();
+
+    private const int MaxMinutesBeforeRemoval = 3;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -34,7 +40,7 @@ public class SubscriptionRenewService(
 
     private async Task CheckAndRenewSubscriptionsAsync(CancellationToken stoppingToken)
     {
-        var devices = deviceRepository.ToCollection();
+        var devices = deviceRepository.ToImmutableList();
         var now = DateTime.Now;
         var threshold = now.AddSeconds(configuration.Value.RenewThreshold);
 
@@ -45,10 +51,10 @@ public class SubscriptionRenewService(
                 break;
             }
 
-            foreach (var subscriptionEntry in device.Subscriptions)
-            {
-                var subscription = subscriptionEntry.Value;
+            var renewals = new List<(SubscriptionEventType Type, DateTime NewExpires)>();
 
+            foreach (var (subscriptionEventType, subscription) in device.Subscriptions)
+            {
                 if (subscription.Expires < threshold)
                 {
                     try
@@ -65,7 +71,9 @@ public class SubscriptionRenewService(
                             subscription.Identifier
                         );
 
-                        subscription.Expires = newExpires;
+                        renewals.Add((subscriptionEventType, newExpires));
+
+                        _renewalFailureTimes.TryRemove(device.DeviceId, out _);
 
                         logger.LogInformation(
                             "Subscription {SubscriptionId} renewed. New Expires: {Expires}",
@@ -75,14 +83,52 @@ public class SubscriptionRenewService(
                     }
                     catch (Exception ex)
                     {
+                        var firstFailure = _renewalFailureTimes.GetOrAdd(device.DeviceId, now);
+                        var minutesFailed = (now - firstFailure).TotalMinutes;
                         logger.LogError(
-                            ex,
-                            "Failed to renew subscription {SubscriptionId} for device {DeviceId}",
+                            "Failed to renew subscription {SubscriptionId} for device {DeviceId} (failure since {FirstFailureTime}, {MinutesFailed:F1} minutes), {Message}",
                             subscription.Identifier,
-                            device.DeviceId
+                            device.DeviceId,
+                            firstFailure,
+                            minutesFailed,
+                            ex.Message
                         );
+
+                        if (minutesFailed >= MaxMinutesBeforeRemoval)
+                        {
+                            logger.LogWarning(
+                                "Device {DeviceId} could not be resubscribed for {MaxMinutesBeforeRemoval} minutes. Removing from DeviceRepository.",
+                                device.DeviceId,
+                                MaxMinutesBeforeRemoval
+                            );
+
+                            deviceRepository.TryRemoveById(device.DeviceId, out _);
+                            _renewalFailureTimes.TryRemove(device.DeviceId, out _);
+                        }
+
+                        break;
                     }
                 }
+            }
+
+            if (renewals.Count > 0)
+            {
+                deviceRepository.UpdateAtomic(
+                    device.DeviceId,
+                    current =>
+                    {
+                        var newSubs = current.Subscriptions;
+                        foreach (var (type, newExpires) in renewals)
+                        {
+                            if (newSubs.TryGetValue(type, out var sub))
+                            {
+                                newSubs = newSubs.SetItem(type, sub with { Expires = newExpires });
+                            }
+                        }
+
+                        return current with { Subscriptions = newSubs };
+                    }
+                );
             }
         }
     }

@@ -58,10 +58,7 @@ internal class UdpMessagesProcessor(
                     {
                         var actionHandler = messageActions.GetKeyedService<ISoapActionHandler>(soapAction);
 
-                        if (actionHandler != null)
-                        {
-                            actionHandler.HandleAsync(udpReceiveResult.Buffer);
-                        }
+                        actionHandler?.HandleAsync(udpReceiveResult.Buffer);
                     }
                 }
                 else
