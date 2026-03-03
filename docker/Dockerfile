@@ -14,6 +14,7 @@ RUN apk add --no-cache \
     ca-certificates \
     gphoto2 \
     sane-backends \
+    imagemagick \
     bash \
     shadow
 

@@ -3,7 +3,20 @@
     "OutputDir": "/app/scans",
     "Sane": {
       "UseSaneBackend": true,
-      "Device": "pixma:MF220_{Ip}"
+      "Format": "pnm",
+      "Device": "pixma:MF220_{Ip}",
+      "ImageConverter": {
+        "Path": "magick",
+        "Args": [
+          "PNM:${InputPath}",
+          "-gamma 2.2",
+          "-quality 92",
+          "-sampling-factor 4:2:0",
+          "-interlace Plane",
+          "-strip",
+          "JPG:${OutputPath}"
+        ]
+      }
     },
     "ScanProfiles": [
       {
