@@ -9,7 +9,7 @@ updates:
       - dependency-name: "System.ServiceModel.*"
         update-types: [ "version-update:semver-major" ]
   - package-ecosystem: "docker"
-    directory: "/"
+    directory: "/docker"
     target-branch: "dev"
     schedule:
       interval: "weekly"
