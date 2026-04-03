@@ -3,13 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WsdScanService.Host", "WsdScanService.Host\WsdScanService.Host.csproj", "{05912AD8-CBFC-4363-8B9E-0E4622261190}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8F56AA20-9311-4DA1-9B22-CBB4FCB50332}"
-	ProjectSection(SolutionItems) = preProject
-		docker\Dockerfile = docker\Dockerfile
-		docker\custom-settings.json = docker\custom-settings.json
-		docker\.env = docker\.env
-		docker\docker-compose.yaml = docker\docker-compose.yaml
-		docker\docker-compose-local.yaml = docker\docker-compose-local.yaml
-	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WsdScanService.Common", "WsdScanService.Common\WsdScanService.Common.csproj", "{051944F3-CE62-4BEF-9C95-780E924654BE}"
 EndProject
