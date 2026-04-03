@@ -1,7 +1,7 @@
 ﻿services:
   wsd-scan-service:
     pull_policy: always
-    image: andreybardashevsky/wsd-scan-service
+    image: ghcr.io/bobi/wsdscanservice:latest
     restart: unless-stopped
     network_mode: host
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
