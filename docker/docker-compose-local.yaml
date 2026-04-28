@@ -1,6 +1,7 @@
 ﻿services:
   wsd-scan-service:
     image: wsd-scan-service
+    container_name: wsd-scan-service-dev
     restart: unless-stopped
     build:
       context: ..
