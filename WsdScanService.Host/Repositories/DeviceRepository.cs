@@ -27,20 +27,7 @@ public class DeviceRepository
     {
         lock (_writeLock)
         {
-            _devicesById.TryGetValue(device.DeviceId, out var oldDevice);
-            _devicesById[device.DeviceId] = device;
-
-            var newAddress = GetDeviceAddress(device);
-            _devicesByAddress[newAddress] = device;
-
-            if (oldDevice != null)
-            {
-                var oldAddress = GetDeviceAddress(oldDevice);
-                if (oldAddress != newAddress)
-                {
-                    _devicesByAddress.TryRemove(oldAddress, out _);
-                }
-            }
+            DoUpdate(device);
         }
     }
 
@@ -50,8 +37,25 @@ public class DeviceRepository
         {
             if (_devicesById.TryGetValue(deviceId, out var device))
             {
-                var newDevice = updateFactory(device);
-                Update(newDevice);
+                DoUpdate(updateFactory(device));
+            }
+        }
+    }
+
+    private void DoUpdate(Device device)
+    {
+        _devicesById.TryGetValue(device.DeviceId, out var oldDevice);
+        _devicesById[device.DeviceId] = device;
+
+        var newAddress = GetDeviceAddress(device);
+        _devicesByAddress[newAddress] = device;
+
+        if (oldDevice != null)
+        {
+            var oldAddress = GetDeviceAddress(oldDevice);
+            if (oldAddress != newAddress)
+            {
+                _devicesByAddress.TryRemove(oldAddress, out _);
             }
         }
     }
@@ -78,7 +82,10 @@ public class DeviceRepository
 
     public bool TryGetByHostAddress(string address, [NotNullWhen(true)] out Device? device)
     {
-        return _devicesByAddress.TryGetValue(address, out device);
+        lock (_writeLock)
+        {
+            return _devicesByAddress.TryGetValue(address, out device);
+        }
     }
 
     public bool TryRemoveById(string deviceId, [NotNullWhen(true)] out Device? device)
