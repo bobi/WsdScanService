@@ -10,7 +10,7 @@ using WsdScanService.Scanner.Contracts;
 
 namespace WsdScanService.Scanner.Services;
 
-using ScanJobInfo = (ScanTicket ScanTicket, DateTime ExpirationTime);
+using ScanJobInfo = (ScanTicket ScanTicket, ImageConverterConfiguration? ImageConverter, DateTime ExpirationTime);
 
 public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfiguration> configuration)
     : BackgroundService, ISaneScanner
@@ -66,12 +66,13 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
     }
 
     public Task<ScanJob> CreateScanJobAsync(
-        ScanTicket scanTicket
+        ScanTicket scanTicket,
+        ImageConverterConfiguration? imageConverter = null
     )
     {
         var jobToken = Guid.NewGuid().ToString();
 
-        _scanJobs.TryAdd(jobToken, (scanTicket, DateTime.UtcNow.AddMinutes(ExpirationTime)));
+        _scanJobs.TryAdd(jobToken, (scanTicket, imageConverter, DateTime.UtcNow.AddMinutes(ExpirationTime)));
 
         return Task.FromResult(
             new ScanJob
@@ -110,7 +111,10 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
         try
         {
             scannedImagePath = await ScanImage(saneDevice, scanServiceAddress, scanJobInfo);
-            transformedImagePath = await TransformImage(scannedImagePath);
+            transformedImagePath = await TransformImage(
+                scannedImagePath,
+                scanJobInfo.ImageConverter ?? configuration.Value.Sane?.ImageConverter
+            );
 
             var imageData = await File.ReadAllBytesAsync(transformedImagePath);
 
@@ -143,9 +147,9 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
         throw new InvalidOperationException();
     }
 
-    private async Task<string> TransformImage(string inputImagePath)
+    private async Task<string> TransformImage(string inputImagePath, ImageConverterConfiguration? imageConverter)
     {
-        if (string.IsNullOrEmpty(configuration.Value.Sane?.ImageConverter?.Path))
+        if (string.IsNullOrEmpty(imageConverter?.Path))
         {
             return inputImagePath;
         }
@@ -154,7 +158,7 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
 
         var info = new ProcessStartInfo
         {
-            FileName = configuration.Value.Sane.ImageConverter.Path,
+            FileName = imageConverter.Path,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -167,7 +171,7 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
             { "OutputPath", outputPath }
         };
 
-        foreach (var arg in configuration.Value.Sane?.ImageConverter?.Args ?? [])
+        foreach (var arg in imageConverter.Args ?? [])
         {
             info.ArgumentList.Add(ReplaceNamedParameters(arg, namedParameters));
         }
