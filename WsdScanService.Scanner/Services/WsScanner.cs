@@ -42,13 +42,15 @@ internal class WsScanner(
         string scanServiceAddress,
         string scanIdentifier,
         string destinationToken,
-        ScanTicket scanTicket
+        ScanTicket scanTicket,
+        ImageConverterConfiguration? imageConverter = null
     )
     {
         if (configuration.Value.Sane?.UseSaneBackend ?? false)
         {
             return await saneScanner.CreateScanJobAsync(
-                scanTicket
+                scanTicket,
+                imageConverter
             );
         }
 

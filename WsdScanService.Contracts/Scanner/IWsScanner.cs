@@ -1,3 +1,4 @@
+using WsdScanService.Common.Configuration;
 using WsdScanService.Contracts.Scanner.Entities;
 
 namespace WsdScanService.Contracts.Scanner;
@@ -20,7 +21,8 @@ public interface IWsScanner
         string scanServiceAddress,
         string scanIdentifier,
         string destinationToken,
-        ScanTicket scanTicket
+        ScanTicket scanTicket,
+        ImageConverterConfiguration? imageConverter = null
     );
 
     public Task CancelScanJobAsync(string scanServiceAddress, ScanJob scanJob);
