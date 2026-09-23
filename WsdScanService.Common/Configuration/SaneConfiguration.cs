@@ -20,4 +20,7 @@ public record SaneConfiguration
     public string? Format { get; init; }
 
     public ImageConverterConfiguration? ImageConverter { get; init; }
+
+    // Named converters referenced by ScanProfile.ImageConverter
+    public IDictionary<string, ImageConverterConfiguration>? ImageConverters { get; init; }
 }

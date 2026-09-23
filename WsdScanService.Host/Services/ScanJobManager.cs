@@ -26,6 +26,24 @@ internal class ScanJobManager(
         public required ScanJob ScanJob { get; init; }
     }
 
+    private ImageConverterConfiguration? GetImageConverter(string clientContext)
+    {
+        var name = configuration.Value.ScanProfiles.FirstOrDefault(p => p.Id == clientContext)?.ImageConverter;
+
+        if (string.IsNullOrEmpty(name))
+        {
+            return null;
+        }
+
+        if (configuration.Value.Sane?.ImageConverters?.TryGetValue(name, out var converter) ?? false)
+        {
+            return converter;
+        }
+
+        logger.LogError("ImageConverter '{Name}' is not defined in Sane.ImageConverters", name);
+        throw new InvalidOperationException($"ImageConverter '{name}' is not defined in Sane.ImageConverters");
+    }
+
     private async Task AddJob(Device device, string clientContext, string scanIdentifier, string? inputSource)
     {
         var scanJob = await scanner.CreateScanJobAsync(
@@ -36,7 +54,7 @@ internal class ScanJobManager(
             {
                 InputSource = inputSource ?? ScanTicket.DefaultScanTicket.InputSource
             },
-            configuration.Value.ScanProfiles.FirstOrDefault(p => p.Id == clientContext)?.ImageConverter
+            GetImageConverter(clientContext)
         );
 
         var jobId = scanJob.JobId;
