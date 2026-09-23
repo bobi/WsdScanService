@@ -10,7 +10,7 @@ using WsdScanService.Scanner.Contracts;
 
 namespace WsdScanService.Scanner.Services;
 
-using ScanJobInfo = (ScanTicket ScanTicket, ImageConverterConfiguration? ImageConverter, DateTime ExpirationTime);
+using ScanJobInfo = (ScanTicket ScanTicket, DateTime ExpirationTime);
 
 public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfiguration> configuration)
     : BackgroundService, ISaneScanner
@@ -66,13 +66,12 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
     }
 
     public Task<ScanJob> CreateScanJobAsync(
-        ScanTicket scanTicket,
-        ImageConverterConfiguration? imageConverter = null
+        ScanTicket scanTicket
     )
     {
         var jobToken = Guid.NewGuid().ToString();
 
-        _scanJobs.TryAdd(jobToken, (scanTicket, imageConverter, DateTime.UtcNow.AddMinutes(ExpirationTime)));
+        _scanJobs.TryAdd(jobToken, (scanTicket, DateTime.UtcNow.AddMinutes(ExpirationTime)));
 
         return Task.FromResult(
             new ScanJob
@@ -111,10 +110,7 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
         try
         {
             scannedImagePath = await ScanImage(saneDevice, scanServiceAddress, scanJobInfo);
-            transformedImagePath = await TransformImage(
-                scannedImagePath,
-                scanJobInfo.ImageConverter ?? configuration.Value.Sane?.ImageConverter
-            );
+            transformedImagePath = await TransformImage(scannedImagePath, scanJobInfo.ScanTicket.ImageConverter);
 
             var imageData = await File.ReadAllBytesAsync(transformedImagePath);
 
@@ -147,8 +143,32 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
         throw new InvalidOperationException();
     }
 
-    private async Task<string> TransformImage(string inputImagePath, ImageConverterConfiguration? imageConverter)
+    private const string DefaultImageConverter = "default";
+
+    private ImageConverterConfiguration? ResolveImageConverter(string? name)
     {
+        var key = string.IsNullOrEmpty(name) ? DefaultImageConverter : name;
+
+        if (configuration.Value.Sane?.ImageConverters?.TryGetValue(key, out var converter) ?? false)
+        {
+            return converter;
+        }
+
+        if (key != DefaultImageConverter)
+        {
+            logger.LogWarning(
+                "ImageConverter '{Name}' is not defined in Sane.ImageConverters, image is not converted",
+                key
+            );
+        }
+
+        return null;
+    }
+
+    private async Task<string> TransformImage(string inputImagePath, string? imageConverterName)
+    {
+        var imageConverter = ResolveImageConverter(imageConverterName);
+
         if (string.IsNullOrEmpty(imageConverter?.Path))
         {
             return inputImagePath;

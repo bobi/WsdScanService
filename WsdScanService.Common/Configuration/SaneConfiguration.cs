@@ -19,5 +19,6 @@ public record SaneConfiguration
 
     public string? Format { get; init; }
 
-    public ImageConverterConfiguration? ImageConverter { get; init; }
+    // Named converters referenced by ScanProfile.ImageConverter; "default" is used when a profile names none
+    public IDictionary<string, ImageConverterConfiguration>? ImageConverters { get; init; }
 }

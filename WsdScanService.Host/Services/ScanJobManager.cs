@@ -35,8 +35,7 @@ internal class ScanJobManager(
             new ScanTicket(device.ScanTickets[clientContext])
             {
                 InputSource = inputSource ?? ScanTicket.DefaultScanTicket.InputSource
-            },
-            configuration.Value.ScanProfiles.FirstOrDefault(p => p.Id == clientContext)?.ImageConverter
+            }
         );
 
         var jobId = scanJob.JobId;
