@@ -8,6 +8,6 @@ public record ScanProfile
 
     public required int Resolution { get; init; }
 
-    // Name of a Sane.ImageConverters entry overriding Sane.ImageConverter (e.g. "autocrop")
+    // Name of a Sane.ImageConverters entry (e.g. "autocrop"); null = "default"
     public string? ImageConverter { get; init; }
 }

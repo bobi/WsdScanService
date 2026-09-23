@@ -13,6 +13,7 @@ public record ScanTicket
         SizeAutoDetect = scanTicket.SizeAutoDetect;
         ImagesToTransfer = scanTicket.ImagesToTransfer;
         Resolution = scanTicket.Resolution;
+        ImageConverter = scanTicket.ImageConverter;
     }
 
     public string Format { get; init; } = "jfif";
@@ -28,4 +29,7 @@ public record ScanTicket
     public int ImagesToTransfer { get; init; } = 1;
     
     public int Resolution { get; init; } = 300;
+
+    // Name of a Sane.ImageConverters entry; null = "default". SANE backend only
+    public string? ImageConverter { get; init; }
 }

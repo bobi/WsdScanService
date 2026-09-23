@@ -200,7 +200,7 @@ public class DeviceManager(
             Subscriptions = subscriptions.ToImmutableDictionary(),
             ScanTickets = configuration.Value.ScanProfiles.ToDictionary(
                     e => e.Id,
-                    e => new ScanTicket { Resolution = e.Resolution }
+                    e => new ScanTicket { Resolution = e.Resolution, ImageConverter = e.ImageConverter }
                 )
                 .ToImmutableDictionary(),
             InstanceId = instanceId,
