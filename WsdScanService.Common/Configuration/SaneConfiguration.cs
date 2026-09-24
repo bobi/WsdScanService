@@ -9,6 +9,8 @@ public record ImageConverterConfiguration
 
 public record SaneConfiguration
 {
+    public const int DefaultTimeoutSeconds = 180;
+
     public bool UseSaneBackend { get; init; } = false;
 
     public required string Device { get; init; }
@@ -18,6 +20,9 @@ public record SaneConfiguration
     public ICollection<string>? AdditionalArgs { get; init; }
 
     public string? Format { get; init; }
+
+    // Max run time for scanimage and each image converter; the process is killed when exceeded
+    public int TimeoutSeconds { get; init; } = DefaultTimeoutSeconds;
 
     // Named converters referenced by ScanProfile.ImageConverter; "default" is used when a profile names none
     public IDictionary<string, ImageConverterConfiguration>? ImageConverters { get; init; }

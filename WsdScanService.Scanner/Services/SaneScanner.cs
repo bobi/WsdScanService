@@ -232,7 +232,7 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
         process.Start();
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
-        await process.WaitForExitAsync();
+        await WaitForExitOrKillAsync(process, "ImageConverter");
 
         logger.LogDebug("ImageConverter Exit code: {ProcessExitCode}", process.ExitCode);
 
@@ -317,7 +317,7 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
         process.Start();
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
-        await process.WaitForExitAsync();
+        await WaitForExitOrKillAsync(process, "Sane");
 
         logger.LogDebug("Sane Exit code: {ProcessExitCode}", process.ExitCode);
 
@@ -331,6 +331,26 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
         }
     }
 
+    private async Task WaitForExitOrKillAsync(Process process, string name)
+    {
+        var timeout = TimeSpan.FromSeconds(configuration.Value.Sane?.TimeoutSeconds ?? SaneConfiguration.DefaultTimeoutSeconds);
+
+        using var cts = new CancellationTokenSource(timeout);
+
+        try
+        {
+            await process.WaitForExitAsync(cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogError("{Name} did not exit within {Timeout}, killing process", name, timeout);
+
+            process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync();
+
+            throw new InvalidExitCodeException($"{name} timed out after {timeout}");
+        }
+    }
 
     private static string GetDeviceAddress(string address)
     {
