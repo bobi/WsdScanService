@@ -75,7 +75,7 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
         return Task.FromResult(
             new ScanJob
             {
-                JobId = Convert.ToInt32(Environment.TickCount),
+                JobId = Random.Shared.Next(1, int.MaxValue),
                 JobToken = jobToken,
                 ImagesToTransfer = 1
             }

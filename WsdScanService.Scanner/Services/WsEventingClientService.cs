@@ -53,7 +53,7 @@ internal class WsEventingClientService(
         {
             Identifier = soapResponse.SubscriptionManager.ReferenceParameters!.Identifier,
             Expires = soapResponse.Expires != null
-                ? DateTime.Now + XmlConvert.ToTimeSpan(soapResponse.Expires)
+                ? DateTime.UtcNow + XmlConvert.ToTimeSpan(soapResponse.Expires)
                 : DateTime.MaxValue,
             DestinationTokens = soapResponse.DestinationResponses?.DestinationResponse?.ToDictionary(
                     e => e.ClientContext.Value,
@@ -77,7 +77,7 @@ internal class WsEventingClientService(
         var soapResponse = await client.RenewAsync(renewRequest);
 
         return soapResponse.Expires != null
-            ? DateTime.Now + XmlConvert.ToTimeSpan(soapResponse.Expires)
+            ? DateTime.UtcNow + XmlConvert.ToTimeSpan(soapResponse.Expires)
             : DateTime.MaxValue;
     }
 
