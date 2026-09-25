@@ -9,5 +9,6 @@ public interface ISaneScanner : IHostedService
 
     public Task CancelScanJobAsync(string scanServiceAddress, ScanJob scanJob);
 
-    public Task<byte[]?> RetrieveImage(string scanServiceAddress, ScanJob scanJob);
+    // Returns path to a temp file with the scanned image; caller owns and must delete it
+    public Task<string> RetrieveImage(string scanServiceAddress, ScanJob scanJob);
 }

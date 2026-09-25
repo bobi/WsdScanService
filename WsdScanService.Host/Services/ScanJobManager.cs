@@ -100,23 +100,33 @@ internal class ScanJobManager(
 
         while (imagesToTransfer > 0)
         {
-            var imageData = await scanner.RetrieveImageAsync(
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var imagePath = await scanner.RetrieveImageAsync(
                 scanJob.Device.ScanServiceAddress,
                 scanJob.ScanJob
             );
 
-            if (imageData is not { Length: > 0 })
+            try
             {
-                throw new InvalidOperationException(
-                    $"Scanner returned no image data, {imagesToTransfer} image(s) not transferred"
+                // Guards against scanimage/converter exiting 0 without writing output
+                if (!File.Exists(imagePath) || new FileInfo(imagePath).Length == 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Scanner returned no image data, {imagesToTransfer} image(s) not transferred"
+                    );
+                }
+
+                FileUtils.MoveToUniqueFile(
+                    imagePath,
+                    Path.Combine(outputDir, $"{DateTime.Now:yyyy-MM-dd_HHmmss}.jpg")
                 );
             }
-
-            await FileUtils.WriteUniqueFileWithSuffix(
-                Path.Combine(outputDir, $"{DateTime.Now:yyyy-MM-dd_HHmmss}.jpg"),
-                imageData,
-                cancellationToken
-            );
+            finally
+            {
+                // No-op after a successful move
+                File.Delete(imagePath);
+            }
 
             imagesToTransfer--;
         }

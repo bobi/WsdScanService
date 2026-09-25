@@ -89,7 +89,7 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
         return Task.CompletedTask;
     }
 
-    public async Task<byte[]?> RetrieveImage(string scanServiceAddress, ScanJob scanJob)
+    public async Task<string> RetrieveImage(string scanServiceAddress, ScanJob scanJob)
     {
         var saneDevice = configuration.Value.Sane?.Device;
 
@@ -103,28 +103,19 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
             throw new InvalidOperationException("Scan job not found");
         }
 
-        string? scannedImagePath = null;
-
         try
         {
-            scannedImagePath = await ScanImage(saneDevice, scanServiceAddress, scanJobInfo);
-
-            return await File.ReadAllBytesAsync(scannedImagePath);
+            return await ScanImage(saneDevice, scanServiceAddress, scanJobInfo);
         }
         finally
         {
-            if (scannedImagePath != null)
-            {
-                File.Delete(scannedImagePath);
-            }
-
             _scanJobs.TryRemove(scanJob.JobToken, out _);
         }
     }
 
     private async Task<string> ScanImage(string saneDevice, string scanServiceAddress, ScanJobInfo scanJobInfo)
     {
-        var outputPath = Path.Combine(Path.GetTempPath(), $"scan-image-output-{Guid.NewGuid()}");
+        var outputPath = Path.Combine(Path.GetTempPath(), $"scan-sane-image-{Guid.NewGuid()}");
 
         var info = new ProcessStartInfo
         {
