@@ -13,3 +13,4 @@
       - /etc/timezone:/etc/timezone:ro
       - ./sane.d/dll.conf:/etc/sane.d/dll.conf:ro
       - ./sane.d/dll.d:/etc/sane.d/dll.d:ro
+      - ./sane.d/pixma.conf:/etc/sane.d/pixma.conf:ro
