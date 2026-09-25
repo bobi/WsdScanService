@@ -8,6 +8,6 @@ public record ScanProfile
 
     public required int Resolution { get; init; }
 
-    // Name of a Sane.ImageConverters entry (e.g. "autocrop"); null = "default"
+    // Name of an ImageConverters entry (e.g. "autocrop") of the active backend (Sane or Wsd); null = "default"
     public string? ImageConverter { get; init; }
 }

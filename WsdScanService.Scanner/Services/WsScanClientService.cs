@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using WsdScanService.Common.Configuration;
 using WsdScanService.Contracts.Scanner.Entities;
 using WsdScanService.Contracts.ScanService;
 using WsdScanService.Scanner.Contracts;
@@ -6,8 +8,16 @@ using WsdScanService.Scanner.Contracts;
 namespace WsdScanService.Scanner.Services;
 
 internal class WsScanClientService(
-    ILogger<WsScanClientService> logger)
+    ILogger<WsScanClientService> logger,
+    IOptions<ScanServiceConfiguration> configuration)
 {
+    private WsScannerClient CreateClient(string scanServiceAddress) =>
+        WsScannerClient.Create(
+            scanServiceAddress,
+            TimeSpan.FromSeconds(configuration.Value.WsdScanTimeoutSeconds),
+            logger
+        );
+
     public async Task<ScanJob> CreateScanJobAsync(
         string scanServiceAddress,
         string scanIdentifier,
@@ -15,7 +25,7 @@ internal class WsScanClientService(
         ScanTicket scanTicket
     )
     {
-        var wsWsdScanClient = WsScannerClient.Create(scanServiceAddress, logger);
+        await using var wsWsdScanClient = CreateClient(scanServiceAddress);
 
         var request = new CreateScanJobRequest
         {
@@ -66,7 +76,7 @@ internal class WsScanClientService(
 
     public async Task CancelScanJobAsync(string scanServiceAddress, ScanJob scanJob)
     {
-        var wsWsdScanClient = WsScannerClient.Create(scanServiceAddress, logger);
+        await using var wsWsdScanClient = CreateClient(scanServiceAddress);
 
         var cancelJobRequest = new CancelJobRequest
         {
@@ -82,7 +92,7 @@ internal class WsScanClientService(
 
     public async Task<byte[]?> RetrieveImage(string scanServiceAddress, ScanJob scanJob)
     {
-        var wsWsdScanClient = WsScannerClient.Create(scanServiceAddress, logger);
+        await using var wsWsdScanClient = CreateClient(scanServiceAddress);
 
         var retrieveRequest = new RetrieveImageRequest
         {
@@ -100,7 +110,7 @@ internal class WsScanClientService(
 
     public async Task GetActiveJobsAsync(string scanServiceAddress)
     {
-        var wsWsdScanClient = WsScannerClient.Create(scanServiceAddress, logger);
+        await using var wsWsdScanClient = CreateClient(scanServiceAddress);
 
         var request = new GetActiveJobsRequest()
         {
@@ -112,7 +122,7 @@ internal class WsScanClientService(
 
     public async Task GetJobHistoryAsync(string scanServiceAddress)
     {
-        var wsWsdScanClient = WsScannerClient.Create(scanServiceAddress, logger);
+        await using var wsWsdScanClient = CreateClient(scanServiceAddress);
 
         var request = new GetJobHistoryRequest()
         {

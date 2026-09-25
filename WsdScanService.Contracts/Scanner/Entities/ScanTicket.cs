@@ -30,6 +30,6 @@ public record ScanTicket
     
     public int Resolution { get; init; } = 300;
 
-    // Name of a Sane.ImageConverters entry; null = "default". SANE backend only
+    // Name of an ImageConverters entry of the active backend (Sane or Wsd); null = "default"
     public string? ImageConverter { get; init; }
 }

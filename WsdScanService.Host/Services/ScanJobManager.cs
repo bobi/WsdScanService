@@ -136,16 +136,20 @@ internal class ScanJobManager(
                 scanJob.ScanJob
             );
 
-            if (imageData is { Length: > 0 })
+            if (imageData is not { Length: > 0 })
             {
-                await FileUtils.WriteUniqueFileWithSuffix(
-                    Path.Combine(outputDir, $"{DateTime.Now:yyyy-MM-dd_HHmmss}.jpg"),
-                    imageData,
-                    cancellationToken
+                throw new InvalidOperationException(
+                    $"Scanner returned no image data, {imagesToTransfer} image(s) not transferred"
                 );
-
-                imagesToTransfer--;
             }
+
+            await FileUtils.WriteUniqueFileWithSuffix(
+                Path.Combine(outputDir, $"{DateTime.Now:yyyy-MM-dd_HHmmss}.jpg"),
+                imageData,
+                cancellationToken
+            );
+
+            imagesToTransfer--;
         }
     }
 
