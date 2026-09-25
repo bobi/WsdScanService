@@ -25,7 +25,8 @@ public interface IWsScanner
 
     public Task CancelScanJobAsync(string scanServiceAddress, ScanJob scanJob);
 
-    public Task<byte[]?> RetrieveImageAsync(string scanServiceAddress, ScanJob scanJob);
+    // Returns path to a temp file with the image; caller owns and must delete it
+    public Task<string> RetrieveImageAsync(string scanServiceAddress, ScanJob scanJob);
     
     public Task GetJobHistoryAsync(string scanServiceAddress);
 

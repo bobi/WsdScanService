@@ -9,9 +9,11 @@ public class ImageConverterService(ILogger<ImageConverterService> logger)
 {
     public const string DefaultImageConverter = "default";
 
-    // Runs the named converter (null = "default") from the given set; returns the image unchanged when none applies
-    public async Task<byte[]> TransformAsync(
-        byte[] image,
+    // Runs the named converter (null = "default") from the given set on the image file at inputPath.
+    // Takes ownership of inputPath and returns the path of the resulting file (inputPath itself when no converter
+    // applies); the caller owns the returned file.
+    public async Task<string> TransformAsync(
+        string inputPath,
         string? name,
         IDictionary<string, ImageConverterConfiguration>? converters,
         TimeSpan timeout
@@ -21,16 +23,13 @@ public class ImageConverterService(ILogger<ImageConverterService> logger)
 
         if (string.IsNullOrEmpty(imageConverter?.Path))
         {
-            return image;
+            return inputPath;
         }
 
-        var inputPath = Path.Combine(Path.GetTempPath(), $"scan-transform-image-input-{Guid.NewGuid()}");
         var outputPath = Path.Combine(Path.GetTempPath(), $"scan-transform-image-output-{Guid.NewGuid()}");
 
         try
         {
-            await File.WriteAllBytesAsync(inputPath, image);
-
             var info = new ProcessStartInfo
             {
                 FileName = imageConverter.Path,
@@ -50,12 +49,16 @@ public class ImageConverterService(ILogger<ImageConverterService> logger)
 
             await ProcessRunner.RunAsync(info, "ImageConverter", timeout, logger);
 
-            return await File.ReadAllBytesAsync(outputPath);
+            return outputPath;
+        }
+        catch
+        {
+            File.Delete(outputPath);
+            throw;
         }
         finally
         {
             File.Delete(inputPath);
-            File.Delete(outputPath);
         }
     }
 

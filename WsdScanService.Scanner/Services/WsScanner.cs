@@ -70,26 +70,21 @@ internal class WsScanner(
         }
     }
 
-    public async Task<byte[]?> RetrieveImageAsync(string scanServiceAddress, ScanJob scanJob)
+    public async Task<string> RetrieveImageAsync(string scanServiceAddress, ScanJob scanJob)
     {
         var sane = configuration.Value.Sane;
         var wsd = configuration.Value.Wsd;
 
-        var imageData = UseSaneBackend
+        var imagePath = UseSaneBackend
             ? await saneScanner.RetrieveImage(scanServiceAddress, scanJob)
             : await wsScanServiceClientService.RetrieveImage(scanServiceAddress, scanJob);
-
-        if (imageData is not { Length: > 0 })
-        {
-            return imageData;
-        }
 
         var (converters, timeoutSeconds) = UseSaneBackend
             ? (sane?.ImageConverters, sane?.TimeoutSeconds ?? SaneConfiguration.DefaultTimeoutSeconds)
             : (wsd?.ImageConverters, wsd?.TimeoutSeconds ?? WsdConfiguration.DefaultTimeoutSeconds);
 
         return await imageConverterService.TransformAsync(
-            imageData,
+            imagePath,
             scanJob.ImageConverter,
             converters,
             TimeSpan.FromSeconds(timeoutSeconds)

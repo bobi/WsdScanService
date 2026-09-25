@@ -2,12 +2,14 @@ namespace WsdScanService.Host.Utils;
 
 public static class FileUtils
 {
-    public static async Task WriteUniqueFileWithSuffix(string initialPath, byte[] content,
-        CancellationToken cancellationToken)
+    // Moves sourcePath to initialPath, adding a -N suffix if taken; falls back to copy+delete across filesystems
+    public static string MoveToUniqueFile(string sourcePath, string initialPath)
     {
         var uniquePath = GetUniqueFilePath(initialPath);
 
-        await File.WriteAllBytesAsync(uniquePath, content, cancellationToken);
+        File.Move(sourcePath, uniquePath, overwrite: false);
+
+        return uniquePath;
     }
 
     private static string GetUniqueFilePath(string initialPath)

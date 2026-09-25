@@ -90,7 +90,8 @@ internal class WsScanClientService(
     }
 
 
-    public async Task<byte[]?> RetrieveImage(string scanServiceAddress, ScanJob scanJob)
+    // Returns path to a temp file with the image; caller owns and must delete it
+    public async Task<string> RetrieveImage(string scanServiceAddress, ScanJob scanJob)
     {
         await using var wsWsdScanClient = CreateClient(scanServiceAddress);
 
@@ -105,7 +106,18 @@ internal class WsScanClientService(
 
         var retrieveResponse = await wsWsdScanClient.RetrieveImageAsync(retrieveRequest);
 
-        return retrieveResponse.RetrieveImageResponse1.ScanData.Value;
+        var imageData = retrieveResponse.RetrieveImageResponse1.ScanData.Value;
+
+        if (imageData is not { Length: > 0 })
+        {
+            throw new InvalidOperationException("Scanner returned no image data");
+        }
+
+        var path = Path.Combine(Path.GetTempPath(), $"scan-wsd-image-{Guid.NewGuid()}");
+
+        await File.WriteAllBytesAsync(path, imageData);
+
+        return path;
     }
 
     public async Task GetActiveJobsAsync(string scanServiceAddress)
