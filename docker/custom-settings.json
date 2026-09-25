@@ -4,12 +4,13 @@
     "Sane": {
       "UseSaneBackend": true,
       "Device": "pixma:MF220_{Ip}",
+      "Format": "pnm",
       "AdditionalArgs": ["--calibrate=Never", "--buffer-size=1024"],
       "ImageConverters": {
         "default": {
           "Path": "magick",
           "Args": [
-            "JPG:{InputPath}",
+            "{InputPath}",
             "-gamma",
             "2.2",
             "-quality",
@@ -25,7 +26,7 @@
         "autocrop": {
           "Path": "magick",
           "Args": [
-            "JPG:{InputPath}",
+            "{InputPath}",
             "(",
             "+clone",
             "-colorspace",
