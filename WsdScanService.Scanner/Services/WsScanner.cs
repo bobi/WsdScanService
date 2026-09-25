@@ -86,7 +86,7 @@ internal class WsScanner(
 
         var (converters, timeoutSeconds) = UseSaneBackend
             ? (sane?.ImageConverters, sane?.TimeoutSeconds ?? SaneConfiguration.DefaultTimeoutSeconds)
-            : (wsd?.ImageConverters, wsd?.ImageConverterTimeoutSeconds ?? WsdConfiguration.DefaultImageConverterTimeoutSeconds);
+            : (wsd?.ImageConverters, wsd?.TimeoutSeconds ?? WsdConfiguration.DefaultTimeoutSeconds);
 
         return await imageConverterService.TransformAsync(
             imageData,

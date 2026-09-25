@@ -14,7 +14,7 @@ internal class WsScanClientService(
     private WsScannerClient CreateClient(string scanServiceAddress) =>
         WsScannerClient.Create(
             scanServiceAddress,
-            TimeSpan.FromSeconds(configuration.Value.WsdScanTimeoutSeconds),
+            TimeSpan.FromSeconds(configuration.Value.Wsd?.TimeoutSeconds ?? WsdConfiguration.DefaultTimeoutSeconds),
             logger
         );
 

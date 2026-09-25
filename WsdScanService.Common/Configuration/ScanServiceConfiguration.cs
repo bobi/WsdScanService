@@ -4,8 +4,6 @@ public record ScanServiceConfiguration
 {
     public const string WsdScanService = "WsdScanService";
 
-    public const int DefaultWsdScanTimeoutSeconds = 180;
-
     public required string Ip { get; set; }
 
     public int Port { get; init; } = 5000;
@@ -24,9 +22,6 @@ public record ScanServiceConfiguration
     
     public int RenewThreshold { get; init; } = 60; // in seconds
 
-    // Max duration of a single WSD scan service call (e.g. RetrieveImage, which spans the whole scan)
-    public int WsdScanTimeoutSeconds { get; init; } = DefaultWsdScanTimeoutSeconds; // in seconds
-    
     public SaneConfiguration? Sane { get; init; }
 
     public WsdConfiguration? Wsd { get; init; }
