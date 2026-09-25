@@ -28,4 +28,6 @@ public record ScanServiceConfiguration
     public int WsdScanTimeoutSeconds { get; init; } = DefaultWsdScanTimeoutSeconds; // in seconds
     
     public SaneConfiguration? Sane { get; init; }
+
+    public WsdConfiguration? Wsd { get; init; }
 }

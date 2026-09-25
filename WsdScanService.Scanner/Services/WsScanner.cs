@@ -11,6 +11,7 @@ internal class WsScanner(
     WsTransferClientService wsTransferClientService,
     WsScanClientService wsScanServiceClientService,
     ISaneScanner saneScanner,
+    ImageConverterService imageConverterService,
     IOptions<ScanServiceConfiguration> configuration
 ) : IWsScanner
 {
@@ -45,24 +46,21 @@ internal class WsScanner(
         ScanTicket scanTicket
     )
     {
-        if (configuration.Value.Sane?.UseSaneBackend ?? false)
-        {
-            return await saneScanner.CreateScanJobAsync(
+        var scanJob = UseSaneBackend
+            ? await saneScanner.CreateScanJobAsync(scanTicket)
+            : await wsScanServiceClientService.CreateScanJobAsync(
+                scanServiceAddress,
+                scanIdentifier,
+                destinationToken,
                 scanTicket
             );
-        }
 
-        return await wsScanServiceClientService.CreateScanJobAsync(
-            scanServiceAddress,
-            scanIdentifier,
-            destinationToken,
-            scanTicket
-        );
+        return scanJob with { ImageConverter = scanTicket.ImageConverter };
     }
 
     public async Task CancelScanJobAsync(string scanServiceAddress, ScanJob scanJob)
     {
-        if (configuration.Value.Sane?.UseSaneBackend ?? false)
+        if (UseSaneBackend)
         {
             await saneScanner.CancelScanJobAsync(scanServiceAddress, scanJob);
         }
@@ -74,13 +72,31 @@ internal class WsScanner(
 
     public async Task<byte[]?> RetrieveImageAsync(string scanServiceAddress, ScanJob scanJob)
     {
-        if (configuration.Value.Sane?.UseSaneBackend ?? false)
+        var sane = configuration.Value.Sane;
+        var wsd = configuration.Value.Wsd;
+
+        var imageData = UseSaneBackend
+            ? await saneScanner.RetrieveImage(scanServiceAddress, scanJob)
+            : await wsScanServiceClientService.RetrieveImage(scanServiceAddress, scanJob);
+
+        if (imageData is not { Length: > 0 })
         {
-            return await saneScanner.RetrieveImage(scanServiceAddress, scanJob);
+            return imageData;
         }
 
-        return await wsScanServiceClientService.RetrieveImage(scanServiceAddress, scanJob);
+        var (converters, timeoutSeconds) = UseSaneBackend
+            ? (sane?.ImageConverters, sane?.TimeoutSeconds ?? SaneConfiguration.DefaultTimeoutSeconds)
+            : (wsd?.ImageConverters, wsd?.ImageConverterTimeoutSeconds ?? WsdConfiguration.DefaultImageConverterTimeoutSeconds);
+
+        return await imageConverterService.TransformAsync(
+            imageData,
+            scanJob.ImageConverter,
+            converters,
+            TimeSpan.FromSeconds(timeoutSeconds)
+        );
     }
+
+    private bool UseSaneBackend => configuration.Value.Sane?.UseSaneBackend ?? false;
 
     public async Task GetJobHistoryAsync(string scanServiceAddress)
     {

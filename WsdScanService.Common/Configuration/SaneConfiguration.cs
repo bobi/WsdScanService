@@ -24,6 +24,6 @@ public record SaneConfiguration
     // Max run time for scanimage and each image converter; the process is killed when exceeded
     public int TimeoutSeconds { get; init; } = DefaultTimeoutSeconds;
 
-    // Named converters referenced by ScanProfile.ImageConverter; "default" is used when a profile names none
+    // Named converters applied to images from the SANE backend; "default" is used when a profile names none
     public IDictionary<string, ImageConverterConfiguration>? ImageConverters { get; init; }
 }

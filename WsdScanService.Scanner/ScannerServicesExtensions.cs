@@ -32,6 +32,7 @@ public static class ScannerServicesExtensions
 
         services.AddScoped<WsScanCallbackService>();
 
+        services.AddSingleton<ImageConverterService>();
         services.AddSingleton<IWsScanner, WsScanner>();
 
         services.AddSingleton<ISaneScanner, SaneScanner>()

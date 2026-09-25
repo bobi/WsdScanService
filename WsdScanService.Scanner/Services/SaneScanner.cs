@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using WsdScanService.Common.Configuration;
 using WsdScanService.Contracts.Scanner.Entities;
 using WsdScanService.Scanner.Contracts;
+using WsdScanService.Scanner.Utils;
 
 namespace WsdScanService.Scanner.Services;
 
@@ -15,8 +16,6 @@ using ScanJobInfo = (ScanTicket ScanTicket, DateTime ExpirationTime);
 public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfiguration> configuration)
     : BackgroundService, ISaneScanner
 {
-    private class InvalidExitCodeException(string? message) : Exception(message);
-
     private const uint ExpirationTime = 5; //minutes
 
     private readonly IDictionary<string, string> _formatMap = new Dictionary<string, string>
@@ -105,144 +104,21 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
         }
 
         string? scannedImagePath = null;
-        string? transformedImagePath = null;
 
         try
         {
             scannedImagePath = await ScanImage(saneDevice, scanServiceAddress, scanJobInfo);
-            transformedImagePath = await TransformImage(scannedImagePath, scanJobInfo.ScanTicket.ImageConverter);
 
-            var imageData = await File.ReadAllBytesAsync(transformedImagePath);
-
-            return imageData;
-        }
-        catch (InvalidExitCodeException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, ex.Message);
+            return await File.ReadAllBytesAsync(scannedImagePath);
         }
         finally
         {
-            if (scannedImagePath != null && File.Exists(scannedImagePath))
+            if (scannedImagePath != null)
             {
                 File.Delete(scannedImagePath);
             }
 
-            if (transformedImagePath != null && scannedImagePath != transformedImagePath &&
-                File.Exists(transformedImagePath))
-            {
-                File.Delete(transformedImagePath);
-            }
-
             _scanJobs.TryRemove(scanJob.JobToken, out _);
-        }
-
-        throw new InvalidOperationException();
-    }
-
-    private const string DefaultImageConverter = "default";
-
-    private ImageConverterConfiguration? ResolveImageConverter(string? name)
-    {
-        var key = string.IsNullOrEmpty(name) ? DefaultImageConverter : name;
-
-        if (configuration.Value.Sane?.ImageConverters?.TryGetValue(key, out var converter) ?? false)
-        {
-            return converter;
-        }
-
-        if (key != DefaultImageConverter)
-        {
-            logger.LogWarning(
-                "ImageConverter '{Name}' is not defined in Sane.ImageConverters, image is not converted",
-                key
-            );
-        }
-
-        return null;
-    }
-
-    private async Task<string> TransformImage(string inputImagePath, string? imageConverterName)
-    {
-        var imageConverter = ResolveImageConverter(imageConverterName);
-
-        if (string.IsNullOrEmpty(imageConverter?.Path))
-        {
-            return inputImagePath;
-        }
-
-        var outputPath = Path.Combine(Path.GetTempPath(), $"scan-transform-image-output-{Guid.NewGuid()}");
-
-        var info = new ProcessStartInfo
-        {
-            FileName = imageConverter.Path,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            WorkingDirectory = Path.GetTempPath()
-        };
-
-        var namedParameters = new Dictionary<string, string>
-        {
-            { "InputPath", inputImagePath },
-            { "OutputPath", outputPath }
-        };
-
-        foreach (var arg in imageConverter.Args ?? [])
-        {
-            info.ArgumentList.Add(ReplaceNamedParameters(arg, namedParameters));
-        }
-
-        logger.LogDebug(
-            "Running ImageConverter: {FileName} {Arguments}",
-            info.FileName,
-            string.Join(" ", info.ArgumentList)
-        );
-
-        using var process = new Process();
-
-        process.StartInfo = info;
-
-        var lockObject = new object();
-
-        process.OutputDataReceived += (_, e) =>
-        {
-            if (e.Data != null)
-            {
-                lock (lockObject)
-                {
-                    logger.LogInformation("STDOUT: {EData}", e.Data);
-                }
-            }
-        };
-        process.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data != null)
-            {
-                lock (lockObject)
-                {
-                    logger.LogError("STDERR: {EData}", e.Data);
-                }
-            }
-        };
-
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-        await WaitForExitOrKillAsync(process, "ImageConverter");
-
-        logger.LogDebug("ImageConverter Exit code: {ProcessExitCode}", process.ExitCode);
-
-        if (process.ExitCode == 0)
-        {
-            return outputPath;
-        }
-        else
-        {
-            throw new InvalidExitCodeException($"ImageConverter exit code: {process.ExitCode}");
         }
     }
 
@@ -256,7 +132,7 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
             ArgumentList =
             {
                 "--device",
-                ReplaceNamedParameters(
+                ProcessRunner.ReplaceNamedParameters(
                     saneDevice,
                     new Dictionary<string, string>
                     {
@@ -274,9 +150,6 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
                 "--output-file",
                 outputPath
             },
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
             WorkingDirectory = Path.GetTempPath()
         };
 
@@ -285,72 +158,21 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
             info.ArgumentList.Add(arg);
         }
 
-        logger.LogDebug("Running sane: {FileName} {Arguments}", info.FileName, string.Join(" ", info.ArgumentList));
-
-        using var process = new Process();
-
-        process.StartInfo = info;
-
-        var lockObject = new object();
-
-        process.OutputDataReceived += (_, e) =>
-        {
-            if (e.Data != null)
-            {
-                lock (lockObject)
-                {
-                    logger.LogInformation("STDOUT: {EData}", e.Data);
-                }
-            }
-        };
-        process.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data != null)
-            {
-                lock (lockObject)
-                {
-                    logger.LogError("STDERR: {EData}", e.Data);
-                }
-            }
-        };
-
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-        await WaitForExitOrKillAsync(process, "Sane");
-
-        logger.LogDebug("Sane Exit code: {ProcessExitCode}", process.ExitCode);
-
-        if (process.ExitCode == 0)
-        {
-            return outputPath;
-        }
-        else
-        {
-            throw new InvalidExitCodeException($"Sane exit code: {process.ExitCode}");
-        }
-    }
-
-    private async Task WaitForExitOrKillAsync(Process process, string name)
-    {
-        var timeout = TimeSpan.FromSeconds(configuration.Value.Sane?.TimeoutSeconds ?? SaneConfiguration.DefaultTimeoutSeconds);
-
-        using var cts = new CancellationTokenSource(timeout);
-
         try
         {
-            await process.WaitForExitAsync(cts.Token);
+            await ProcessRunner.RunAsync(info, "Sane", Timeout, logger);
         }
-        catch (OperationCanceledException)
+        catch
         {
-            logger.LogError("{Name} did not exit within {Timeout}, killing process", name, timeout);
-
-            process.Kill(entireProcessTree: true);
-            await process.WaitForExitAsync();
-
-            throw new InvalidExitCodeException($"{name} timed out after {timeout}");
+            File.Delete(outputPath);
+            throw;
         }
+
+        return outputPath;
     }
+
+    private TimeSpan Timeout =>
+        TimeSpan.FromSeconds(configuration.Value.Sane?.TimeoutSeconds ?? SaneConfiguration.DefaultTimeoutSeconds);
 
     private static string GetDeviceAddress(string address)
     {
@@ -360,10 +182,5 @@ public class SaneScanner(ILogger<SaneScanner> logger, IOptions<ScanServiceConfig
         }
 
         return IPAddress.TryParse(address, out var ipAddr) ? ipAddr.ToString() : address;
-    }
-
-    public static string ReplaceNamedParameters(string template, Dictionary<string, string> parameters)
-    {
-        return parameters.Aggregate(template, (current, kvp) => current.Replace("{" + kvp.Key + "}", kvp.Value));
     }
 }
