@@ -4,6 +4,7 @@
     "Sane": {
       "UseSaneBackend": true,
       "Device": "pixma:MF220_{Ip}",
+      "AdditionalArgs": ["--calibrate=Never"],
       "ImageConverters": {
         "default": {
           "Path": "magick",

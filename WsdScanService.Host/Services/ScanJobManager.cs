@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+using System.Threading.Channels;
 using Microsoft.Extensions.Options;
 using WsdScanService.Common.Configuration;
 using WsdScanService.Contracts.Scanner;
@@ -15,9 +15,7 @@ internal class ScanJobManager(
     IWsScanner scanner)
     : BackgroundService, IScanJobManager
 {
-    private readonly BlockingCollection<string> _newJobs = new();
-
-    private readonly ConcurrentDictionary<string, ScanJobInfo> _scanJobs = new();
+    private readonly Channel<ScanJobInfo> _newJobs = Channel.CreateUnbounded<ScanJobInfo>();
 
     private class ScanJobInfo
     {
@@ -38,91 +36,62 @@ internal class ScanJobManager(
             }
         );
 
-        var jobId = scanJob.JobId;
-        var jobToken = scanJob.JobToken;
-        var jobKey = $"{device.DeviceId}-{jobId}-{jobToken}";
+        _newJobs.Writer.TryWrite(new ScanJobInfo { Device = device, ScanJob = scanJob });
 
-        var scanJobInfo = new ScanJobInfo
-        {
-            Device = device,
-            ScanJob = scanJob
-        };
-
-        if (_scanJobs.TryAdd(jobKey, scanJobInfo))
-        {
-            _newJobs.Add(jobKey);
-
-            logger.LogInformation(
-                "Added new scan job to process: {JobId}, for Device: {Device}",
-                jobId,
-                device.DeviceId
-            );
-        }
-        else
-        {
-            logger.LogWarning(
-                "Failed to add job {JobId} because it already exists, for Device: {Device}",
-                jobId,
-                device.DeviceId
-            );
-        }
+        logger.LogInformation(
+            "Added new scan job to process: {JobId}, for Device: {Device}",
+            scanJob.JobId,
+            device.DeviceId
+        );
     }
 
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
     {
         logger.LogDebug("Starting scan job processor loop");
 
-        while (!cancellationToken.IsCancellationRequested)
+        try
         {
-            try
+            await foreach (var scanJob in _newJobs.Reader.ReadAllAsync(cancellationToken))
             {
-                var jobId = _newJobs.Take(cancellationToken);
-
-                if (_scanJobs.TryGetValue(jobId, out var scanJob))
-                {
-                    logger.LogInformation("Processing job {JobId}", jobId);
-
-                    try
-                    {
-                        var outputDir = configuration.Value.OutputDir;
-                        if (string.IsNullOrEmpty(outputDir))
-                        {
-                            logger.LogWarning("Output directory is not configured. Canceling job {JobId}", jobId);
-
-                            await CancelJob(scanJob);
-                        }
-                        else
-                        {
-                            await RetrieveImages(scanJob, outputDir, cancellationToken);
-
-                            logger.LogInformation("Successfully retrieved images for job {JobId}", jobId);
-                        }
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        await CancelJob(scanJob);
-
-                        logger.LogError(ex, "Failed to retrieve image for job {JobId}", jobId);
-                    }
-                }
+                await ProcessJob(scanJob, cancellationToken);
             }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, ex.Message);
-
-                await Task.Delay(500, cancellationToken);
-            }
+        }
+        catch (OperationCanceledException)
+        {
         }
 
         logger.LogDebug("Scan job processor loop completed");
+    }
+
+    private async Task ProcessJob(ScanJobInfo scanJob, CancellationToken cancellationToken)
+    {
+        var jobId = scanJob.ScanJob.JobId;
+
+        logger.LogInformation("Processing job {JobId}", jobId);
+
+        try
+        {
+            await RetrieveImages(scanJob, configuration.Value.OutputDir, cancellationToken);
+
+            logger.LogInformation("Successfully retrieved images for job {JobId}", jobId);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to retrieve image for job {JobId}", jobId);
+
+            try
+            {
+                await CancelJob(scanJob);
+            }
+            catch (Exception cancelEx)
+            {
+                logger.LogWarning(cancelEx, "Failed to cancel job {JobId}", jobId);
+            }
+        }
     }
 
     private async Task RetrieveImages(ScanJobInfo scanJob, string outputDir, CancellationToken cancellationToken)

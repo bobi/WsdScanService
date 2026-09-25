@@ -41,7 +41,7 @@ public class SubscriptionRenewService(
     private async Task CheckAndRenewSubscriptionsAsync(CancellationToken stoppingToken)
     {
         var devices = deviceRepository.ToImmutableList();
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         var threshold = now.AddSeconds(configuration.Value.RenewThreshold);
 
         foreach (var device in devices)

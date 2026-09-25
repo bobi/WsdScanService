@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Microsoft.Extensions.Options;
 using WsdScanService.Common.Configuration;
@@ -19,6 +20,9 @@ public class DeviceManager(
             new ScanDestination { DisplayName = e.DisplayName, Id = e.Id }
         )
         .ToList();
+
+    // ponytail: one semaphore per device id, never evicted; fine for a handful of scanners on a LAN
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _deviceLocks = new();
 
     public Task RemoveDevice(string deviceId, uint instanceId, uint metadataVersion = 0)
     {
@@ -43,22 +47,28 @@ public class DeviceManager(
 
     private async Task PerformDeviceRemoval(Device device)
     {
+        foreach (var subscription in device.Subscriptions)
+        {
+            await TryUnsubscribe(device.DeviceId, device.ScanServiceAddress, subscription.Value.Identifier);
+        }
+
+        deviceRepository.TryRemoveById(device.DeviceId, out _);
+        logger.LogInformation("Device removed: {DeviceId}", device.DeviceId);
+    }
+
+    private async Task TryUnsubscribe(string deviceId, string scanServiceAddress, string subscriptionId)
+    {
         try
         {
-            foreach (var subscription in device.Subscriptions)
-            {
-                await scanner.UnsubscribeAsync(device.ScanServiceAddress, subscription.Value.Identifier);
-            }
-
-            deviceRepository.TryRemoveById(device.DeviceId, out _);
-            logger.LogInformation("Device removed: {DeviceId}", device.DeviceId);
+            await scanner.UnsubscribeAsync(scanServiceAddress, subscriptionId);
         }
         catch (Exception e)
         {
-            logger.LogError(
-                "Error while removing device subscription: {DeviceId}. {Message}",
-                device.DeviceId,
-                e.Message
+            logger.LogWarning(
+                e,
+                "Failed to unsubscribe {SubscriptionId} for device {DeviceId}",
+                subscriptionId,
+                deviceId
             );
         }
     }
@@ -79,14 +89,7 @@ public class DeviceManager(
         {
             try
             {
-                if (deviceRepository.TryGetById(deviceId, out var device))
-                {
-                    await UpdateDevice(device, mexAddress, instanceId, metadataVersion);
-                }
-                else
-                {
-                    await AddNewDevice(deviceId, mexAddress, type, instanceId, metadataVersion);
-                }
+                await AddOrUpdateDevice(deviceId, mexAddress, type, instanceId, metadataVersion);
 
                 break;
             }
@@ -107,6 +110,35 @@ public class DeviceManager(
                     throw;
                 }
             }
+        }
+    }
+
+    private async Task AddOrUpdateDevice(
+        string deviceId,
+        string mexAddress,
+        string type,
+        uint instanceId,
+        uint metadataVersion
+    )
+    {
+        // Serializes concurrent Hello/ProbeMatches for the same device, so it is subscribed only once
+        var deviceLock = _deviceLocks.GetOrAdd(deviceId, _ => new SemaphoreSlim(1, 1));
+
+        await deviceLock.WaitAsync();
+        try
+        {
+            if (deviceRepository.TryGetById(deviceId, out var device))
+            {
+                await UpdateDevice(device, mexAddress, instanceId, metadataVersion);
+            }
+            else
+            {
+                await AddNewDevice(deviceId, mexAddress, type, instanceId, metadataVersion);
+            }
+        }
+        finally
+        {
+            deviceLock.Release();
         }
     }
 
@@ -151,7 +183,12 @@ public class DeviceManager(
                     device.DeviceId,
                     ex.Message
                 );
+
+                continue;
             }
+
+            // Drop the replaced subscription so it does not linger on the scanner until it expires
+            await TryUnsubscribe(device.DeviceId, device.ScanServiceAddress, subscriptionEntry.Value.Identifier);
         }
 
         var updatedDevice = device with
@@ -214,9 +251,15 @@ public class DeviceManager(
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        foreach (var device in deviceRepository.ToImmutableList())
+        var removals = deviceRepository.ToImmutableList().Select(PerformDeviceRemoval);
+
+        try
         {
-            await PerformDeviceRemoval(device);
+            await Task.WhenAll(removals).WaitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogWarning("Shutdown timeout reached before all devices were unsubscribed");
         }
     }
 }

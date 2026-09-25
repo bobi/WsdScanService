@@ -23,7 +23,12 @@ public static class WsScanServiceHostExtensions
                         configuration.Ip = ipResolverService.GetHostIpAddress();
                     }
                 }
-            );
+            )
+            .Validate(
+                configuration => Directory.Exists(configuration.OutputDir),
+                "WsdScanService:OutputDir must point to an existing directory"
+            )
+            .ValidateOnStart();
 
         services.AddSingleton<DeviceRepository>();
 

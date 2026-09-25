@@ -31,9 +31,12 @@ internal class WsTransferClientService(ILogger<WsTransferClientService> logger)
 
         return new ScanDeviceMetadata
         {
-            ModelName = thisModelType.ModelName.First().Value,
+            ModelName = thisModelType.ModelName.FirstOrDefault()?.Value ?? "Unknown",
             SerialNumber = thisDeviceType.SerialNumber,
-            ScanServiceAddress = hostedService.EndpointReference.First().Address.Value ?? string.Empty
+            ScanServiceAddress = hostedService.EndpointReference.FirstOrDefault()?.Address.Value
+                                 ?? throw new InvalidOperationException(
+                                     $"Device {deviceId} scan service has no EndpointReference address"
+                                 )
         };
     }
 
@@ -70,10 +73,10 @@ internal class WsTransferClientService(ILogger<WsTransferClientService> logger)
 
         var hostedService = relationship.Any.Where(element => element.LocalName == "Hosted")
             .Select(element => element.Deserialize<Hosted>())
-            .First(hosted => XmlUtils
+            .FirstOrDefault(hosted => XmlUtils
                 .ParseTypes(hosted.Types, xmlDoc?.GetAllNamespaces())
                 ?.Contains(Xd.ScanService.ScannerServiceTypeQName) ?? false
-            );
+            ) ?? throw new InvalidOperationException("Device metadata has no Hosted service of type ScannerServiceType");
 
         return (thisDeviceType, thisModelType, hostedService);
     }
