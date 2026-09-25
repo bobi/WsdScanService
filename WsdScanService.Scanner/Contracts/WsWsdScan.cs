@@ -83,13 +83,14 @@ internal interface IWsScannerCallback
 
 internal class WsScannerClient : ClientBase<IWsScannerClient>, IWsScannerClient
 {
-    private WsScannerClient(string uri) : base(new WsdClientBinding(), new EndpointAddress(uri))
+    private WsScannerClient(string uri, TimeSpan operationTimeout)
+        : base(new WsdClientBinding(operationTimeout: operationTimeout), new EndpointAddress(uri))
     {
     }
 
-    public static WsScannerClient Create(string uri, ILogger logger)
+    public static WsScannerClient Create(string uri, TimeSpan operationTimeout, ILogger logger)
     {
-        var client = new WsScannerClient(uri);
+        var client = new WsScannerClient(uri, operationTimeout);
 
         client.AddTraceMessageLogBehavior(logger);
 

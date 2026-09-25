@@ -12,8 +12,14 @@ internal class WsdClientBinding : CustomBinding
     private const bool UseDefaultWebProxy = false;
     private readonly Uri? _proxyAddress = null;
 
-    public WsdClientBinding(bool manualAddressing = false)
+    public WsdClientBinding(bool manualAddressing = false, TimeSpan? operationTimeout = null)
     {
+        if (operationTimeout is { } timeout)
+        {
+            SendTimeout = timeout;
+            ReceiveTimeout = timeout;
+        }
+
         var httpTransport = new HttpTransportBindingElement
         {
             MaxBufferSize = MaxBufferSize,
