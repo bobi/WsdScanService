@@ -11,7 +11,7 @@ public class ImageConverterService(ILogger<ImageConverterService> logger)
 
     // Runs the named converter (null = "default") from the given set on the image file at inputPath.
     // Takes ownership of inputPath and returns the path of the resulting file (inputPath itself when no converter
-    // applies); the caller owns the returned file.
+    // applies); the caller owns the returned file. The returned path ends with the converter's Extension, if set.
     public async Task<string> TransformAsync(
         string inputPath,
         string? name,
@@ -20,13 +20,14 @@ public class ImageConverterService(ILogger<ImageConverterService> logger)
     )
     {
         var imageConverter = Resolve(name, converters);
+        var suffix = string.IsNullOrEmpty(imageConverter?.Extension) ? "" : $".{imageConverter.Extension}";
 
         if (string.IsNullOrEmpty(imageConverter?.Path))
         {
-            return inputPath;
+            return suffix == "" ? inputPath : Rename(inputPath, inputPath + suffix);
         }
 
-        var outputPath = Path.Combine(Path.GetTempPath(), $"scan-transform-image-output-{Guid.NewGuid()}");
+        var outputPath = Path.Combine(Path.GetTempPath(), $"scan-transform-image-output-{Guid.NewGuid()}{suffix}");
 
         try
         {
@@ -60,6 +61,21 @@ public class ImageConverterService(ILogger<ImageConverterService> logger)
         finally
         {
             File.Delete(inputPath);
+        }
+    }
+
+    private static string Rename(string sourcePath, string targetPath)
+    {
+        try
+        {
+            File.Move(sourcePath, targetPath);
+
+            return targetPath;
+        }
+        catch
+        {
+            File.Delete(sourcePath);
+            throw;
         }
     }
 

@@ -117,9 +117,12 @@ internal class ScanJobManager(
                     );
                 }
 
+                // Temp image files carry an extension only when the converter sets one
+                var extension = Path.GetExtension(imagePath) is { Length: > 0 } ext ? ext : ".jpg";
+
                 FileUtils.MoveToUniqueFile(
                     imagePath,
-                    Path.Combine(outputDir, $"{DateTime.Now:yyyy-MM-dd_HHmmss}.jpg")
+                    Path.Combine(outputDir, $"{DateTime.Now:yyyy-MM-dd_HHmmss}{extension}")
                 );
             }
             finally
