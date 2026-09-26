@@ -39,7 +39,8 @@ public class ImageConverterService(ILogger<ImageConverterService> logger)
             var namedParameters = new Dictionary<string, string>
             {
                 { "InputPath", inputPath },
-                { "OutputPath", outputPath }
+                { "OutputPath", outputPath },
+                { "BaseDir", AppContext.BaseDirectory }
             };
 
             foreach (var arg in imageConverter.Args ?? [])
