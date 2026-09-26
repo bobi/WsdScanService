@@ -30,6 +30,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <None Include="scripts\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <ItemGroup>
       <Folder Include="tmp\wsdscan\" />
     </ItemGroup>
 
