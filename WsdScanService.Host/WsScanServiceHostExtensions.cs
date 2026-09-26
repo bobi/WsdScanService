@@ -33,6 +33,10 @@ public static class WsScanServiceHostExtensions
                 HasDefaultConverterForSaneFormat,
                 "WsdScanService:Sane:ImageConverters:default must be defined when WsdScanService:Sane:Format is set"
             )
+            .Validate(
+                HasValidConverterExtensions,
+                "WsdScanService:*:ImageConverters:*:Extension must contain only letters and digits"
+            )
             .ValidateOnStart();
 
         services.AddSingleton<DeviceRepository>();
@@ -61,5 +65,16 @@ public static class WsScanServiceHostExtensions
 
         return sane.ImageConverters?.TryGetValue(ImageConverterService.DefaultImageConverter, out var converter) == true
                && !string.IsNullOrEmpty(converter.Path);
+    }
+
+    // Extension becomes part of the saved file name, so it must not carry dots or path separators
+    private static bool HasValidConverterExtensions(ScanServiceConfiguration configuration)
+    {
+        var converters = (configuration.Sane?.ImageConverters?.Values ?? [])
+            .Concat(configuration.Wsd?.ImageConverters?.Values ?? []);
+
+        return converters.All(c =>
+            c.Extension is null || (c.Extension.Length > 0 && c.Extension.All(char.IsAsciiLetterOrDigit))
+        );
     }
 }
