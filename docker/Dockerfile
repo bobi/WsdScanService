@@ -5,7 +5,7 @@ COPY . .
 RUN dotnet restore
 RUN dotnet publish -c $BUILD_CONFIGURATION -o /app/out /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
+FROM mcr.microsoft.com/dotnet/aspnet:11.0-alpine
 ARG USER_ID=1000
 ARG GROUP_ID=1000
 ARG USER_NAME=wsdscan
