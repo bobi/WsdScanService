@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="CoreWCF.Primitives" Version="1.9.1" />
+        <PackageReference Include="CoreWCF.Primitives" Version="1.9.2" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\WsdScanService.Common\WsdScanService.Common.csproj"/>
