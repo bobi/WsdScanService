@@ -19,7 +19,7 @@
         <PackageReference Include="CoreWCF.Primitives" Version="1.9.2"/>
         <PackageReference Include="CoreWCF.Http" Version="1.9.2"/>
         <PackageReference Include="CoreWCF.NetTcp" Version="1.9.2"/>
-        <PackageReference Include="CoreWCF.WebHttp" Version="1.9.1"/>
+        <PackageReference Include="CoreWCF.WebHttp" Version="1.9.2"/>
     </ItemGroup>
 
     <ItemGroup>
